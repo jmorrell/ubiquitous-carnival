@@ -12,6 +12,12 @@ npm run demo
 
 The test configuration starts its own server with a fresh temporary persistent store. It does not reuse a running demo or stale component artifact. Playwright is 1.64.1; its default expected Chromium cache was unavailable. The configuration used existing cached Chromium build 1243, **Chrome for Testing 153.0.8010.12**, without downloading anything. `PLAYWRIGHT_CHROMIUM_EXECUTABLE` can select another executable. This is evidence for that browser/version, not all browsers.
 
+## How a proposal becomes a note
+
+![The host checks the iframe’s ready message before transferring a MessagePort and limited context. The iframe requests scoped bytes, then proposes a note. The host displays the proposal and persists it only after a trusted user click.](../docs/diagrams/browser-annotation.png)
+
+The handshake checks the expected frame's window and opaque origin; it does not authenticate a user. After that, the broker accepts only artifact reads and note proposals on the transferred port. It validates each artifact or target, keeps a pending proposal fixed while the user reviews it, and renders existing notes outside the iframe. A successful proposal response means **pending host confirmation**, not saved. The demo's action header is a fixture guard, not production authentication. [Editable diagram and sources](../docs/diagrams/README.md).
+
 ## What passed
 
 1. **Actual media interaction and a user-owned note.** Clicking the second transcript cue sets an actual `HTMLVideoElement.currentTime`; playing the local WebM advances playback and updates the component's time display. A note proposal alone creates no annotation. An explicit trusted host button click persists the note against the selected original-media time target. The component cannot replace the displayed proposal while confirmation is pending. The fixed host transcript has readable text but no synchronization controls. The same generic host displays the Parquet summary at `/?item=parquet` with no component.

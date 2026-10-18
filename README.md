@@ -4,18 +4,11 @@ This repository investigates an extension boundary; it is not a production plugi
 
 The exact TypeScript signatures are in [src/contract.ts](src/contract.ts). The executable examples and the limitations below are part of the proposal, not incidental implementation details.
 
-## What changed the design
-
-- The existing application already separates stable user items from captures, but refresh deletes the old capture and its original before the replacement succeeds. We retain originals and prior published generations, and switch visibility only after a complete publication is validated.
-- Multiple artifact rows already exist outside `ContentHandler`; reserved `original`/`readable` names, HTML/PDF unions, image rewriting, item-level FTS and the reader constrain extensibility. Merely widening the handler return type cannot support a searchable transcript with a resolvable media target.
-- There is no current annotation implementation to preserve. The new contract must identify targets explicitly and retain their artifact revisions; it must not silently reinterpret a note against new transcript text.
-- EmDash's sandbox frontend is a host-rendered block vocabulary; its arbitrary native components are trusted build imports. Cloudflare OS implements arbitrary iframe code with a scoped RPC channel. Those are different frontend trust models, separate from backend Worker isolation.
-- EmDash's broad content permission is not automatic per-item authority, and a wall timeout does not cancel a paid effect. The experiment checks artifact membership on each capability call and records effect outcomes independently of publication.
-- Actual workerd exposes `process` even without our passing Node compatibility flags. What matters is that host environment variables and credentials are absent, rather than that a particular global is absent.
-
-The [save trace](evidence/stacks-trace.md) cites the exact code/schema at Stacks commit `ba2c100d4cca0164cd1752cebaec72b11ba4a016`. [Prior-art evidence](evidence/prior-art.md) uses PR270 as a source map and verifies material mechanisms at immutable EmDash and Cloudflare OS commits. It distinguishes implemented code, documented promises, and proposals. No production data or production credentials were used.
-
 ## The boundaries and why each exists
+
+![The trusted host mediates two separate boundaries: a Dynamic Worker processes through scoped capabilities, while an optional opaque-origin iframe reads artifacts and proposes notes through the host UI.](docs/diagrams/authority-boundaries.png)
+
+The processor and the detail component are separate untrusted programs. The host supplies each one's authority and validates what comes back. A processor returns a publication candidate; only the host can make it visible. The browser component can propose a note; only a user-confirmed host action can save it. [Editable diagram and sources](docs/diagrams/README.md).
 
 | Surface | Exact contract | Requirement that earns it |
 | --- | --- | --- |
@@ -32,7 +25,22 @@ Registration is a host decision. Recognition here is declarative MIME matching (
 
 Recognition, processing and rendering do not have to execute in the same trust domain. The host recognizes/selects; a Dynamic Worker processes; an opaque-origin browser iframe renders a retained artifact. A renderer can be packaged independently and reused by a processor, but this prototype does not implement an installed-renderer registry or arbitrary multi-processor composition. Each publication belongs to one selected processor. Adding independent enrichment would need explicit input grants and a conflict/visibility policy; there is no general event bus.
 
+## What changed the design
+
+- The existing application already separates stable user items from captures, but refresh deletes the old capture and its original before the replacement succeeds. We retain originals and prior published generations, and switch visibility only after a complete publication is validated.
+- Multiple artifact rows already exist outside `ContentHandler`; reserved `original`/`readable` names, HTML/PDF unions, image rewriting, item-level FTS and the reader constrain extensibility. Merely widening the handler return type cannot support a searchable transcript with a resolvable media target.
+- There is no current annotation implementation to preserve. The new contract must identify targets explicitly and retain their artifact revisions; it must not silently reinterpret a note against new transcript text.
+- EmDash's sandbox frontend is a host-rendered block vocabulary; its arbitrary native components are trusted build imports. Cloudflare OS implements arbitrary iframe code with a scoped RPC channel. Those are different frontend trust models, separate from backend Worker isolation.
+- EmDash's broad content permission is not automatic per-item authority, and a wall timeout does not cancel a paid effect. The experiment checks artifact membership on each capability call and records effect outcomes independently of publication.
+- Actual workerd exposes `process` even without our passing Node compatibility flags. What matters is that host environment variables and credentials are absent, rather than that a particular global is absent.
+
+The [save trace](evidence/stacks-trace.md) cites the exact code/schema at Stacks commit `ba2c100d4cca0164cd1752cebaec72b11ba4a016`. [Prior-art evidence](evidence/prior-art.md) uses PR270 as a source map and verifies material mechanisms at immutable EmDash and Cloudflare OS commits. It distinguishes implemented code, documented promises, and proposals. No production data or production credentials were used.
+
 ## Ownership, identity and lifecycle
+
+![Generation G1 remains visible while G2 stages artifacts. Only validated, atomically published G2 replaces it; a failed or superseded attempt leaves G1 visible. The effect ledger survives independently of publication.](docs/diagrams/publication-lifecycle.png)
+
+The visibility switch is the commit point. Writing a derived artifact does not publish it, and completing a transcription does not publish the generation. On an item's first attempt, there is no previous publication to show.
 
 | Data | Identity and ownership | Mutation and retention |
 | --- | --- | --- |
@@ -49,13 +57,17 @@ Publication validates item/run membership, the artifact manifest, presentation r
 
 Failure leaves the previous publication visible. Retry creates another generation, but a completed transcription result is reused using a host-derived identity containing item, plugin, original content hash and provider profile. A pending/unknown effect is fenced for reconciliation rather than automatically sent again. No exactly-once billing claim follows from this: an actual provider needs an idempotency key or a way to reconcile acceptance after a lost response.
 
-Reprocessing does not rewrite a note. A note on old transcript text stays attached to the retained old text and is labeled historical. A note on the same original time range can remain current. Changed timestamps or keys are not guessed to be equivalent. Plugin upgrade/reinstallation revokes older live capabilities through a changed installation epoch; it does not silently migrate annotations. Removal rejects subsequent processing operations and future component loads while retaining originals, published data, fallback text, selected search entries, targets and notes. It does not terminate an already-loaded iframe or revoke bytes already transferred. This demo requires a reload to close that browser session; immediate live frontend revocation remains unimplemented.
+![A note on the same original artifact and time selector can keep its target across generations. A regenerated transcript has a new artifact and target; the old note remains attached to retained text and becomes historical.](docs/diagrams/annotation-identity.png)
+
+Target identity includes **item + artifact + local key + selector**. The stable case requires all four to stay the same and the target to appear in the new publication. Equal bytes in a newly issued artifact do not make it the same target. The host derives note status from the current publication; it does not move the note.
+
+Plugin upgrade/reinstallation revokes older live capabilities through a changed installation epoch; it does not silently migrate annotations. Removal rejects subsequent processing operations and future component loads while retaining originals, published data, fallback text, selected search entries, targets and notes. It does not terminate an already-loaded iframe or revoke bytes already transferred. This demo requires a reload to close that browser session; immediate live frontend revocation remains unimplemented.
 
 ## Enforcement and execution limits
 
 The actual child Worker gets only a host-selected capability. Loader `globalOutbound: null` blocks ambient HTTP and TCP. The trusted wrapper overwrites run scope before forwarding requests; the store checks a live generation, installation epoch, artifact membership, ranges, service grant and quotas. TypeScript and a manifest alone do none of this. The plugin receives no storage path, raw store/loader binding, user session, provider credential or annotation writer.
 
-The browser boundary is independent: `sandbox="allow-scripts"`, opaque origin, restrictive parent/child CSP, authenticated frame identity before MessagePort transfer, and host validation of every artifact/target. The component gets item/generation context, not the user's notes. It can propose a note; a trusted host click commits the displayed proposal. All raw artifact responses also carry a restrictive CSP sandbox, so opening an artifact directly does not grant host-origin script authority. The loopback server's action header is a test guard, **not production authentication**. There is no claim of a complete browser security audit.
+The [browser interaction diagram](evidence/browser.md#how-a-proposal-becomes-a-note) follows a request across the second boundary, including the user confirmation step. The browser boundary is independent: `sandbox="allow-scripts"`, opaque origin, restrictive parent/child CSP, authenticated frame identity before MessagePort transfer, and host validation of every artifact/target. The component gets item/generation context, not the user's notes. It can propose a note; a trusted host click commits the displayed proposal. All raw artifact responses also carry a restrictive CSP sandbox, so opening an artifact directly does not grant host-origin script authority. The loopback server's action header is a test guard, **not production authentication**. There is no claim of a complete browser security audit.
 
 Small JS extraction, streamed I/O and orchestration fit the demonstrated Worker boundary. Browser capture, native ffmpeg/CAD tooling, native DuckDB and durable long-running paid work require host services or separately tested Wasm alternatives. Local workerd does not establish production CPU/memory/billing behavior. The [runtime investigation](evidence/runtime.md) records pinned APIs and documented limits, including 128 MiB isolate memory, CPU limits and RPC streaming. Large-file throughput, cancellation of already-delivered bytes, external provider idempotency and production transactions remain untested.
 

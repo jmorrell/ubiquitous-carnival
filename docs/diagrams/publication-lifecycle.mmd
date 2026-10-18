@@ -1,0 +1,6 @@
+flowchart LR
+  original["Archived original<br/>Immutable; user-owned"] --> run["Staging generation<br/>Scoped read / write / transcribe"]
+  run --> validate{"Validate complete<br/>publication"}
+  validate -->|"valid + live"| commit["Atomic publish<br/>Switch current pointer;<br/>retain history"]
+  validate -->|"failure"| keep["Failure or supersession<br/>Previous publication<br/>stays visible"]
+  run -.-> ledger["Effect ledger<br/>Completed: reuse<br/>Unknown: fence retry"]

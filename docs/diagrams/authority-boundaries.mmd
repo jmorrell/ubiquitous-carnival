@@ -1,0 +1,23 @@
+flowchart LR
+  subgraph host["TRUSTED HOST"]
+    direction TB
+    intake["Registration + intake<br/>archive original; select processor"]
+    bridge["Scoped bridge<br/>run + item + epoch + quotas"]
+    publish["Validate candidate publication<br/>atomic visibility change"]
+    data["Host-managed originals, history,<br/>current publication, targets, notes"]
+    intake --> bridge
+    publish --> data
+  end
+  subgraph worker["BOUNDARY 1 — untrusted Dynamic Worker"]
+    processor["process(input, host)<br/>read · write · transcribe<br/>no ambient HTTP / TCP"]
+  end
+  bridge -->|"capability"| processor
+  processor -->|"candidate manifest"| publish
+  subgraph trustedui["TRUSTED HOST UI"]
+    ui["Scoped reads + validated proposals<br/>display note; user confirms to save"]
+  end
+  subgraph component["BOUNDARY 2 — optional untrusted iframe"]
+    viewer["Opaque origin · sandbox · CSP<br/>item/generation context; no notes<br/>read / proposeAnnotation only"]
+  end
+  ui <-->|"MessagePort"| viewer
+  data <--> ui
