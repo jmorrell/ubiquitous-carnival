@@ -19,21 +19,17 @@ export interface Artifact {
 export interface Input { inputId: InputId; originals: readonly Artifact[] }
 /** A published item exposes only the artifacts explicitly selected by its publication. */
 export interface Item { itemId: ItemId; artifacts: readonly Artifact[] }
-/** URL acquisition has no access to existing artifacts or publication. */
-export interface AcquisitionHost {
-  /** Fetch grant required. Only the submitted URL is available through this capability. */
-  fetch(): Promise<Response>;
-  /** Staged original bytes; the host assigns identity and URL origin. */
-  write(meta: { mediaType: string }, body: ReadableStream<Uint8Array>): Promise<Artifact>;
+/** Stores acquired bytes and returns a host-issued artifact descriptor. */
+export interface ArtifactWriter {
+  write(meta: { mediaType: string; origin: ArtifactOrigin }, body: ReadableStream<Uint8Array>): Promise<Artifact>;
 }
-/** Returns the selected staged artifacts; the host commits them as one complete Input. */
-export interface UrlAcquirer { acquire(url: string, host: AcquisitionHost): Promise<ArtifactId[]> }
+/** Obtaining content is implementation-specific; the returned artifacts become one complete Input. */
+export interface UrlAcquirer { acquire(url: string, artifacts: ArtifactWriter): Promise<Artifact[]> }
 export interface UrlAcquirerRegistration {
   id: string;
   version: string;
   /** Exact HTTP(S) origins used for host-owned handler selection. */
   urlOrigins: readonly string[];
-  grants: readonly "fetch"[];
 }
 /** End is exclusive. */
 export interface ByteRange { start: number; end: number }

@@ -1,8 +1,8 @@
 flowchart TB
-  U[URL only] --> A[URL acquisition extension<br/>Selected for submitted URL<br/>Granted fetch + staged writes]
-  A --> H[Host completes ingestion atomically<br/>All original bytes stored<br/>Acquisition failure: no Input]
+  U[URL only] --> A[URL acquisition extension<br/>Write HTML + multiple images<br/>Return Artifact[]]
+  A --> H[Host completes ingestion atomically<br/>Returned artifacts become originals<br/>Acquisition failure: no Input]
   B[Uploaded files / folders<br/>Pasted text / browser capture<br/>Already downloaded bytes] -->|direct ingestion: bypass acquisition| H
-  H --> I[Input: inputId + originals array<br/>Every artifact has stored bytes<br/>Origin: none / URL / file path]
+  H --> I[Input: inputId + originals array<br/>Every artifact has stored bytes<br/>Each artifact has its own origin]
   I --> P[Artifact processor<br/>Process assigned batch once<br/>Scoped read / write / transcribe]
   P --> M[Return 1+ publication manifests<br/>Each selects its own artifact set]
   M --> V[Host validates ALL manifests]

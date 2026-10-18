@@ -3,7 +3,7 @@
 | Diagram | Purpose | Editable canvas | Structural source |
 | --- | --- | --- | --- |
 | [Core flow](core-flow.png) | URL acquisition or direct capture/upload → stored input → artifact processing → published items | [tldraw](core-flow.tldraw) | [Mermaid](core-flow.mmd) |
-| [Authority boundaries](authority-boundaries.png) | Separate acquisition and processing capabilities; each viewer reads only its item's artifact set | [tldraw](authority-boundaries.tldraw) | [Mermaid](authority-boundaries.mmd) |
+| [Authority boundaries](authority-boundaries.png) | Acquisition returns artifacts with its environment left open; processing and viewing have separate boundaries | [tldraw](authority-boundaries.tldraw) | [Mermaid](authority-boundaries.mmd) |
 
 The `.tldraw` files contain editable shapes and bound connections. The `.mmd` files record their structure; the native canvases also contain layout and styling for readability. PNG exports are committed so Markdown readers need no rendering dependency.
 

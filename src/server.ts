@@ -10,7 +10,7 @@ import { parquetRegistration } from '../plugins/parquet';
 import { photoItemsRegistration } from '../plugins/photo-items';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const store = await FileStore.open(process.env.DEMO_STORE ?? root + '.demo-store-acquisition');
+const store = await FileStore.open(process.env.DEMO_STORE ?? root + '.demo-store-artifacts');
 await store.install(videoRegistration); await store.install(parquetRegistration); await store.install(photoItemsRegistration);
 const runner = await createRunner(store);
 async function demoItem(filename: string, mediaType: string, plugin: 'video-viewer' | 'parquet-summary') {

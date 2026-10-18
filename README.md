@@ -16,18 +16,33 @@ An input can complete processing once, producing one or more items. Each item ha
 
 ## URL acquisition is a separate extension point
 
-`UrlAcquirer.acquire(url, host)` returns one or more host-issued artifact IDs. Its `host.write` stages original bytes; the host records their URL origin, validates the returned set, and commits one complete `Input`. Failure exposes no partial input. Acquisition does not publish items or read existing artifacts.
+The core is **a URL in, an array of artifacts out**. An acquirer might fetch HTML and images, call an API, or use a browser. Network access, credentials, browser setup, and future permission restrictions belong to its execution environment; this contract does not model them.
 
-The host selects an acquirer by its declared HTTP(S) URL origins, with an explicit choice when several match. The `fetch` grant exposes only the submitted URL through an injected, trusted network/service adapter. The guest cannot choose a different fetch target, supply request headers, or use ambient network access. The prototype passes only response content type and body to the acquirer and rejects unsuccessful or redirected responses. The trusted adapter owns network policy and any authentication.
+```ts
+interface ArtifactWriter {
+  write(
+    meta: { mediaType: string; origin: ArtifactOrigin },
+    body: ReadableStream<Uint8Array>,
+  ): Promise<Artifact>;
+}
 
-The [download example](plugins/download.ts) fetches a URL and stores its response as an artifact. A host with that acquirer and a fetch adapter configured can run the stages independently:
+interface UrlAcquirer {
+  acquire(url: string, artifacts: ArtifactWriter): Promise<Artifact[]>;
+}
+```
+
+Each `artifacts.write(...)` stores one artifact's bytes and returns its host-issued descriptor. The acquirer can return `[html, image1, image2]`, each with its own origin. The host validates the returned set and commits one complete `Input`; a failure exposes no partial input. Acquisition produces originals, and a later processor decides what to publish.
+
+The host selects an acquirer by its declared HTTP(S) URL origins, with an explicit choice when several match. These origins select a handler; they do not restrict which URLs that handler can fetch.
+
+The [download example](plugins/download.ts) uses ordinary `fetch` and returns a one-artifact array. A host with that acquirer installed can run the stages independently for an image URL:
 
 ```ts
 const input = await runner.acquire(url, "url-download");
 const items = await runner.process(input.inputId, "image-gallery");
 ```
 
-The [integration test](tests/acquisition-dynamic.test.ts) uses an explicitly allowed local HTTP image fixture and actual Dynamic Workers for both stages. It also submits equivalent captured bytes directly, showing that URL provenance does not trigger a cloud fetch. A webpage captured in the browser follows this same bypass, including any resources supplied with it.
+The [integration test](tests/acquisition-flow.test.ts) acquires HTML plus image resources from local HTTP fixtures and passes the resulting artifact array to processing. It also submits equivalent captured bytes directly, showing that URL provenance does not trigger a fetch. A webpage captured in the browser follows this same bypass, including any resources supplied with it.
 
 ## Ingestion produces Input
 
@@ -71,15 +86,15 @@ Each `Publication.artifacts` list is the complete visible set for its item, incl
 
 This defines output item boundaries without adding a document or block format. A general relationship model for captured pages and their supporting resources remains outside this experiment.
 
-## Scoped backend capabilities and a read-only viewer
+## Extension contracts and the viewer
 
-![URL acquisition and artifact processing run in separate Dynamic Worker scopes. Acquisition receives submitted-URL fetch and staged writes; processing receives input reads, derived writes, and granted services. The browser viewer receives only reads of its published item's artifact set.](docs/diagrams/authority-boundaries.png)
+![URL acquisition returns an array of stored artifacts, with its execution environment left open. The artifact processor runs in a Dynamic Worker. The browser viewer receives only reads of its published item's artifact set.](docs/diagrams/authority-boundaries.png)
 
 | Surface | Responsibility |
 | --- | --- |
-| `UrlAcquirerRegistration` | Declares matching URL origins and the fetch grant. The host selects the handler and supplies the network/service adapter. |
-| `UrlAcquirer.acquire(url, host)` | Obtains content and returns selected staged artifact IDs; the host creates one complete `Input`. |
-| `AcquisitionHost.fetch / write` | Fetches only the submitted URL when granted and stages original artifacts. No existing artifact reads, transcription, or publication. |
+| `UrlAcquirerRegistration` | Declares matching URL origins for handler selection. |
+| `UrlAcquirer.acquire(url, artifacts)` | Obtains content and returns an `Artifact[]`; the host creates one complete `Input`. |
+| `ArtifactWriter.write` | Stores each artifact's bytes and origin, assigning its ID, size, and hash. |
 | `ProcessorRegistration` | Declares accepted MIME types and service grants. Selection stays in the host. |
 | `Processor.process(input, host)` | Interprets stored artifacts and returns a nonempty `Publication[]`; the host creates the resulting item IDs. |
 | `ProcessingHost.read / write` | Streams bytes within the assigned input and execution scope, with range and quota checks. No bucket or storage path crosses the boundary. |
@@ -89,7 +104,9 @@ This defines output item boundaries without adding a document or block format. A
 
 The [exact TypeScript contract](src/contract.ts) is small enough to read in full. [Editable tldraw canvases and Mermaid sources](docs/diagrams/README.md) accompany both diagrams.
 
-Each Worker receives only its stage's scoped `HOST` binding. `globalOutbound: null` denies ambient HTTP/TCP in both stages. The trusted bridge supplies execution scope; the store checks scope, ownership, grants, ranges, and quotas. Acquisition's fetch authority never carries into processing. Returning a manifest does not let plugin code publish directly.
+The acquisition example runs in the ordinary Node process and uses its normal networking. It has no acquisition-specific sandbox or network adapter. APIs, secrets, and browser integration can be supplied by an acquirer's environment without changing its output shape; those integrations are not implemented by this fixture.
+
+The existing artifact processor runs in a Dynamic Worker with a scoped `HOST` binding and `globalOutbound: null`. Its trusted bridge supplies execution scope; the store checks scope, ownership, grants, ranges, and quotas. Returning a manifest does not let processor code publish directly.
 
 The browser boundary is independent: an opaque-origin iframe with `sandbox="allow-scripts"`, restrictive CSP, and a MessagePort transferred only to the expected frame. The component cannot access host DOM or make host mutations. Raw artifact responses also carry a restrictive CSP sandbox. [Browser implementation and evidence](evidence/browser.md).
 
@@ -97,7 +114,7 @@ The browser boundary is independent: an opaque-origin iframe with `sandbox="allo
 
 | Example | Processing | Presentation |
 | --- | --- | --- |
-| URL download | A URL acquirer downloads the allowed fixture image, producing a stored input. The existing gallery processor consumes it with no URL-specific branch. | The same gallery fallback used for uploaded images. Equivalent captured bytes bypass acquisition entirely. |
+| URL acquisition | An acquirer returns HTML and image artifacts with separate source URLs. The host completes one input and a processor consumes the whole batch. | Readable output with explicit artifact membership. Equivalent captured bytes bypass acquisition entirely. |
 | Video | A format-valid synthetic WebM produces transcript JSON, readable text, a thumbnail, and component HTML. Selected transcript text is searchable. Transcription and thumbnail content are controlled fixtures. | Actual browser playback and transcript-cue seeking. The component reads transcript JSON and interprets timestamps itself; the host knows nothing about cues. |
 | Parquet | A real parser reads selected byte ranges and materializes only `label` and `value`. The secret column is absent from the summary and search. | The same host displays the readable summary without a component. The original Parquet file is not granted to this item's viewer. |
 | Folder/gallery | Two synthetic SVG images, including a nested path, enter as one input. The [gallery processor](plugins/gallery.ts) emits one item with a gallery manifest, labels, and explicit references to both originals. | Readable list fallback; thumbnail generation and a custom gallery viewer are not built here. |
@@ -118,9 +135,9 @@ npm run test:browser
 npm run demo
 ```
 
-The demo serves video at `http://127.0.0.1:4173/`, Parquet at `/?item=parquet`, and two photo captions at `/?item=photo-1` and `/?item=photo-2`. It uses `.demo-store-acquisition` (schema version 6), separate from earlier stores. Old store formats are rejected; this prototype includes no migration. Browser/runtime checks need local listeners and Chromium. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` if needed; otherwise the browser config uses an available macOS Playwright cache.
+The demo serves video at `http://127.0.0.1:4173/`, Parquet at `/?item=parquet`, and two photo captions at `/?item=photo-1` and `/?item=photo-2`. It uses `.demo-store-artifacts` (schema version 7), separate from earlier stores. Old store formats are rejected; this prototype includes no migration. Browser/runtime checks need local listeners and Chromium. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` if needed; otherwise the browser config uses an available macOS Playwright cache.
 
-Validated on 18 October 2026 (UTC): all three TypeScript configurations, **36 semantic/intake/gallery/publication/acquisition tests + 3 actual Dynamic Worker integration tests**, and **4 Chromium tests** passed. The checks exercise URL-only acquisition, direct capture bypass, scoped fetch grants and revocation, complete multi-file ingestion, rollback and stream cleanup, per-original provenance, one-to-many publication, atomic validation/persistence, no reprocessing after completion, explicit artifact sharing and sibling isolation, service grants, revocation during writes, selective Parquet reads, actual Dynamic Workers, and browser containment. [Core questions](evidence/experiments.md), [persisted-output observations](evidence/semantic-observed.json), [URL acquisition observations](evidence/acquisition-observed.json), [independent runtime probe](runtime/README.md).
+Validated on 18 October 2026 (UTC): all three TypeScript configurations, **39 tests including actual Dynamic Worker processing**, and **4 Chromium tests** passed. The checks exercise HTML-and-image acquisition as an artifact array, direct capture bypass, complete multi-file ingestion, rollback and stream cleanup, per-artifact provenance, one-to-many publication, atomic validation/persistence, no reprocessing after completion, explicit artifact sharing and sibling isolation, processing service grants and revocation, selective Parquet reads, and browser containment. [Core questions](evidence/experiments.md), [persisted-output observations](evidence/semantic-observed.json), [URL acquisition observations](evidence/acquisition-observed.json), [independent runtime probe](runtime/README.md).
 
 ## Evidence and limits
 
@@ -128,7 +145,7 @@ The [existing Stacks save trace](evidence/stacks-trace.md) shows why a wider ret
 
 This is a local filesystem and workerd experiment, not a production plugin platform. Temporary output is discarded on normal failure; there is no resumable work, service-effect ledger, automatic retry, or external-provider idempotency guarantee. It is a single-process store, not a multi-writer database or durable workflow engine.
 
-URL acquisition has no default internet fetch adapter or public submission endpoint. The executable fixture uses an allowlisted local HTTP server. Production authentication, network policy, redirects, and additional resource-fetch permissions are not implemented; the current capability retrieves only the submitted URL. An acquirer may still produce several artifacts from that response. Browser capture can supply a complete set of resources directly.
+URL acquisition has no public submission endpoint. Its fixture uses ordinary network requests to local HTTP servers. Browser automation, authenticated API integrations, and acquisition permission design are deferred; the core result is an array of stored artifacts. Browser capture can supply that same set directly.
 
 The fixtures are tiny. Intake currently allows at most 16 MiB per original and implements no resumable HTTP upload endpoint. Publication accepts 1–100 manifests with at most 100 artifact references each, within the existing processing output quotas. The batch helper establishes the completed-input boundary, not a large-file transport. Browser media is buffered into a Blob; large-media delivery, full DuckDB/Wasm, CAD conversion/viewing, resource exhaustion, and production authentication remain untested. The existing [runtime investigation](evidence/runtime.md) separates documented platform limits from local observations. Blocks/Markdown rendering, recipe editing, agent-facing APIs, distribution, and migration can be designed after this flow is settled.
 

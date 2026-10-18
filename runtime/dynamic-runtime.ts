@@ -16,9 +16,6 @@ export default {
   async fetch(request, env, ctx) {
     const { source, context } = await request.json();
     if (typeof context.runId !== 'string') throw new Error('runId required');
-    const operation = context.operation ?? 'process';
-    if (operation !== 'process' && operation !== 'acquire') throw new Error('invalid worker operation');
-    if (operation === 'acquire' && typeof context.input !== 'string') throw new Error('acquisition URL required');
     const plugin = env.LOADER.load({
       compatibilityDate: '2026-10-01',
       mainModule: 'plugin.js',
@@ -26,7 +23,7 @@ export default {
       env: { HOST: ctx.exports.ScopedHost({ props: { runId: context.runId } }) },
       globalOutbound: null,
     }).getEntrypoint();
-    return Response.json(await (operation === 'acquire' ? plugin.acquire(context.input) : plugin.process(context.input)));
+    return Response.json(await plugin.process(context.input));
   }
 };
 `;
@@ -49,7 +46,7 @@ export async function createDynamicRuntime(storeFetch: (request: Request) => Pro
   }));
   await mf.ready;
   return {
-    async execute<Result, Input = unknown>(source: string, context: { runId: string; input: Input; operation?: 'process' | 'acquire' }): Promise<Result> {
+    async execute<Result, Input = unknown>(source: string, context: { runId: string; input: Input }): Promise<Result> {
       const response = await mf.dispatchFetch('http://trusted-runner/execute', {
         method: 'POST', body: JSON.stringify({ source, context }),
       });

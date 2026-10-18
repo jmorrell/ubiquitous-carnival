@@ -3,18 +3,18 @@ import { createReadStream } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
-import type { AcquisitionHost, Artifact, ArtifactOrigin, ByteRange, Input, Item, ProcessingHost, ProcessorRegistration, Publication, TranscriptSegment, UrlAcquirerRegistration, ViewContext } from './contract';
+import type { Artifact, ArtifactOrigin, ArtifactWriter, ByteRange, Input, Item, ProcessingHost, ProcessorRegistration, Publication, TranscriptSegment, UrlAcquirerRegistration, ViewContext } from './contract';
 
 type Installed = { registration: ProcessorRegistration; epoch: string; active: boolean };
-type InstalledAcquirer = { registration: UrlAcquirerRegistration; epoch: string; active: boolean };
+type InstalledAcquirer = { registration: UrlAcquirerRegistration; active: boolean };
 type ProcessorInfo = { plugin: string; version: string; codeSha256?: string };
 type StoredPublication = { publication: Publication; processor: ProcessorInfo };
-type State = { schemaVersion: 6; inputs: Record<string, Input>; items: Record<string, Item>; artifacts: Record<string, Artifact>; publications: Record<string, StoredPublication>; processed: Record<string, string[]>; plugins: Record<string, Installed>; acquirers: Record<string, InstalledAcquirer> };
+type State = { schemaVersion: 7; inputs: Record<string, Input>; items: Record<string, Item>; artifacts: Record<string, Artifact>; publications: Record<string, StoredPublication>; processed: Record<string, string[]>; plugins: Record<string, Installed>; acquirers: Record<string, InstalledAcquirer> };
 type PendingArtifact = { artifact: Artifact; path: string };
 /** Execution authority and incomplete output are transient, never saved as a draft. */
 type Run = ProcessorInfo & { id: string; inputId: string; epoch: string; outputs: Map<string, PendingArtifact>; finishing: boolean };
-type AcquisitionRun = { id: string; url: string; plugin: string; epoch: string; outputs: Map<string, PendingArtifact>; finishing: boolean };
-const blank = (): State => ({ schemaVersion: 6, inputs: {}, items: {}, artifacts: {}, publications: {}, processed: {}, plugins: {}, acquirers: {} });
+type AcquisitionRun = { id: string; outputs: Map<string, PendingArtifact>; finishing: boolean };
+const blank = (): State => ({ schemaVersion: 7, inputs: {}, items: {}, artifacts: {}, publications: {}, processed: {}, plugins: {}, acquirers: {} });
 const clone = <T>(value: T): T => structuredClone(value);
 const id = (prefix: string) => `${prefix}_${randomUUID()}`;
 function requireThat(test: unknown, message: string): asserts test { if (!test) throw new Error(message); }
@@ -22,9 +22,24 @@ const MAX_BLOB = 16 * 1024 * 1024;
 const MAX_RUN = 32 * 1024 * 1024;
 export const streamText = (text: string): ReadableStream<Uint8Array> => new Blob([text]).stream();
 export type Transcriber = (original: Artifact) => Promise<TranscriptSegment[]>;
-/** Trusted host adapter owns network policy, authentication, and redirect handling. No default network access. */
-export type UrlFetcher = (url: string) => Promise<Response>;
 const validMediaType = (value: unknown): value is string => typeof value === 'string' && value.length < 150 && /^[\w!#$&^.+-]+\/[\w!#$&^.+-]+(?:;[^\r\n]*)?$/.test(value);
+function artifactOrigin(value: ArtifactOrigin): ArtifactOrigin {
+  requireThat(value && typeof value === 'object' && !Array.isArray(value), 'invalid original origin');
+  switch (value.kind) {
+    case 'none': return { kind: 'none' };
+    case 'file': {
+      const { relativePath } = value;
+      requireThat(typeof relativePath === 'string' && relativePath.length > 0 && relativePath.length <= 4096 && !/[\\\u0000-\u001f\u007f]/.test(relativePath) && !/^[A-Za-z]:/.test(relativePath) && relativePath.split('/').every(part => part !== '' && part !== '.' && part !== '..'), 'invalid original relative path');
+      return { kind: 'file', relativePath };
+    }
+    case 'url': {
+      const { url } = value;
+      requireThat(typeof url === 'string' && url.length > 0 && url.length <= 8192 && !/[\u0000-\u001f\u007f]/.test(url), 'invalid original source URL');
+      return { kind: 'url', url };
+    }
+    default: throw new Error('invalid original origin');
+  }
+}
 function acquisitionUrl(value: string): URL {
   requireThat(typeof value === 'string' && value.length > 0 && value.length <= 8192 && !/[\u0000-\u0020\u007f]/.test(value), 'invalid acquisition URL');
   const url = new URL(value);
@@ -49,16 +64,16 @@ export class FileStore {
   private runs = new Map<string, Run>();
   private acquisitions = new Map<string, AcquisitionRun>();
   readonly audit: { reads: { run: string; inputId: string; artifact: string; range?: ByteRange }[] } = { reads: [] };
-  private constructor(readonly directory: string, private state: State, private transcriber: Transcriber, private acquireFetch?: UrlFetcher) {}
-  static async open(directory: string, transcriber: Transcriber = syntheticTranscriber, acquireFetch?: UrlFetcher) {
+  private constructor(readonly directory: string, private state: State, private transcriber: Transcriber) {}
+  static async open(directory: string, transcriber: Transcriber = syntheticTranscriber) {
     let state: State;
     try {
       state = JSON.parse(await fs.readFile(join(directory, 'metadata.json'), 'utf8'));
-      requireThat(state.schemaVersion === 6, 'incompatible store format; use a fresh directory (for example .demo-store-acquisition)');
+      requireThat(state.schemaVersion === 7, 'incompatible store format; use a fresh directory (for example .demo-store-artifacts)');
     } catch (error: any) { if (error.code !== 'ENOENT') throw error; state = blank(); }
     await fs.mkdir(join(directory, 'blobs'), { recursive: true });
     await fs.mkdir(join(directory, '.work'), { recursive: true });
-    const store = new FileStore(directory, state, transcriber, acquireFetch);
+    const store = new FileStore(directory, state, transcriber);
     await store.save(state); return store;
   }
   private async save(state: State) {
@@ -87,9 +102,9 @@ export class FileStore {
   }
   async remove(plugin: string) { return this.mutate(next => { const installed = next.plugins[plugin]; requireThat(installed, 'unknown plugin'); installed.active = false; }); }
   async installAcquirer(registration: UrlAcquirerRegistration) {
-    requireThat(registration && typeof registration.id === 'string' && registration.id.length > 0 && typeof registration.version === 'string' && registration.version.length > 0 && Array.isArray(registration.urlOrigins) && registration.urlOrigins.length > 0 && registration.urlOrigins.length <= 100 && Array.isArray(registration.grants) && registration.grants.every(grant => grant === 'fetch'), 'invalid acquirer registration');
+    requireThat(registration && typeof registration.id === 'string' && registration.id.length > 0 && typeof registration.version === 'string' && registration.version.length > 0 && Array.isArray(registration.urlOrigins) && registration.urlOrigins.length > 0 && registration.urlOrigins.length <= 100, 'invalid acquirer registration');
     for (const origin of registration.urlOrigins) requireThat(acquisitionUrl(origin).origin === origin, 'acquirer requires exact HTTP(S) origins');
-    return this.mutate(next => { next.acquirers[registration.id] = { registration: clone(registration), epoch: id('epoch'), active: true }; });
+    return this.mutate(next => { next.acquirers[registration.id] = { registration: clone(registration), active: true }; });
   }
   async removeAcquirer(plugin: string) { return this.mutate(next => { const installed = next.acquirers[plugin]; requireThat(installed, 'unknown acquirer'); installed.active = false; }); }
   acquisitionCandidates(value: string): UrlAcquirerRegistration[] {
@@ -102,48 +117,38 @@ export class FileStore {
       const candidates = this.acquisitionCandidates(url);
       requireThat(choice || candidates.length === 1, candidates.length > 1 ? 'explicit acquisition handler choice required' : 'no acquisition handler');
       const selected = candidates.find(p => p.id === (choice ?? candidates[0].id)); requireThat(selected, 'acquirer does not accept URL origin');
-      const run: AcquisitionRun = { id: id('acquisition'), url, plugin: selected.id, epoch: this.state.acquirers[selected.id].epoch, outputs: new Map(), finishing: false };
+      const run: AcquisitionRun = { id: id('acquisition'), outputs: new Map(), finishing: false };
       await fs.mkdir(join(this.directory, '.work', run.id)); this.acquisitions.set(run.id, run); return { id: run.id, url };
     });
   }
   private liveAcquisition(runId: string): AcquisitionRun {
     const run = this.acquisitions.get(runId); requireThat(run && !run.finishing, 'acquisition call is not live');
-    const installed = this.state.acquirers[run.plugin]; requireThat(installed?.active && installed.epoch === run.epoch, 'acquisition capability revoked'); return run;
+    return run;
   }
-  acquisitionHost(runId: string): AcquisitionHost {
+  acquisitionWriter(runId: string): ArtifactWriter {
     return {
-      fetch: async () => {
-        const run = this.liveAcquisition(runId);
-        requireThat(this.state.acquirers[run.plugin].registration.grants.includes('fetch'), 'fetch grant required');
-        requireThat(this.acquireFetch, 'URL fetch adapter is not configured');
-        const response = await this.acquireFetch(run.url);
-        try {
-          this.liveAcquisition(runId);
-          requireThat(response.ok && !response.redirected, 'URL acquisition requires a successful response without redirects');
-          const mediaType = response.headers.get('content-type'); requireThat(validMediaType(mediaType), 'invalid acquired response media type');
-          // Never relay cookies, authentication headers, Location, or other host adapter metadata.
-          return new Response(response.body, { headers: { 'content-type': mediaType } });
-        } catch (error) { await response.body?.cancel(error).catch(() => {}); throw error; }
-      },
       write: async (meta, body) => {
         this.liveAcquisition(runId); requireThat(meta && validMediaType(meta.mediaType), 'invalid acquired artifact media type');
         requireThat(body && typeof body.getReader === 'function', 'acquired byte stream required');
-        const mediaType = meta.mediaType;
+        const mediaType = meta.mediaType; const origin = artifactOrigin(meta.origin);
         const { path, ...stored } = await this.temporaryBlob(body, join(this.directory, '.work', runId));
         try {
           const run = this.liveAcquisition(runId); const size = [...run.outputs.values()].reduce((n, value) => n + value.artifact.size, 0);
           requireThat(run.outputs.size < 100, 'artifact count quota exceeded'); requireThat(size + stored.size <= MAX_RUN, 'acquisition output quota exceeded');
-          const artifact: Artifact = { id: id('artifact'), role: 'original', mediaType, origin: { kind: 'url', url: run.url }, ...stored };
+          const artifact: Artifact = { id: id('artifact'), role: 'original', mediaType, origin, ...stored };
           run.outputs.set(artifact.id, { artifact, path }); return clone(artifact);
         } catch (error) { await fs.rm(path, { force: true }); throw error; }
       },
     };
   }
-  async completeAcquisition(runId: string, artifactIds: string[]): Promise<Input> {
+  async completeAcquisition(runId: string, artifacts: Artifact[]): Promise<Input> {
     return this.serialize(async () => {
       const run = this.liveAcquisition(runId);
+      requireThat(Array.isArray(artifacts) && artifacts.every(artifact => artifact && typeof artifact.id === 'string'), 'acquired artifact descriptors required');
+      const artifactIds = artifacts.map(artifact => artifact.id);
       requireThat(Array.isArray(artifactIds) && artifactIds.length > 0 && artifactIds.length <= 100 && new Set(artifactIds).size === artifactIds.length, 'one to 100 unique acquired artifacts required');
-      const selected = artifactIds.map(artifactId => { const output = run.outputs.get(artifactId); requireThat(output, 'artifact outside acquisition capability'); return output; });
+      // Returned descriptors select completed writes; durable metadata comes from the store.
+      const selected = artifactIds.map(artifactId => { const output = run.outputs.get(artifactId); requireThat(output, 'artifact outside acquisition'); return output; });
       const input: Input = { inputId: id('input'), originals: selected.map(({ artifact }) => clone(artifact)) };
       run.finishing = true; const created: string[] = [];
       try {
@@ -191,22 +196,7 @@ export class FileStore {
         requireThat(original && validMediaType(original.mediaType), 'invalid original media type');
         const { mediaType, body } = original;
         requireThat(body && typeof body.getReader === 'function', 'original byte stream required');
-        requireThat(original.origin && typeof original.origin === 'object' && !Array.isArray(original.origin), 'invalid original origin');
-        let origin: ArtifactOrigin;
-        switch (original.origin.kind) {
-          case 'none': origin = { kind: 'none' }; break;
-          case 'file': {
-            const { relativePath } = original.origin;
-            requireThat(typeof relativePath === 'string' && relativePath.length > 0 && relativePath.length <= 4096 && !/[\\\u0000-\u001f\u007f]/.test(relativePath) && !/^[A-Za-z]:/.test(relativePath) && relativePath.split('/').every(part => part !== '' && part !== '.' && part !== '..'), 'invalid original relative path');
-            origin = { kind: 'file', relativePath }; break;
-          }
-          case 'url': {
-            const { url } = original.origin;
-            requireThat(typeof url === 'string' && url.length > 0 && url.length <= 8192 && !/[\u0000-\u001f\u007f]/.test(url), 'invalid original source URL');
-            origin = { kind: 'url', url }; break;
-          }
-          default: throw new Error('invalid original origin');
-        }
+        const origin = artifactOrigin(original.origin);
         // Canonical copies prevent caller mutation while streams are being read.
         return { mediaType, body, origin };
       });
@@ -383,12 +373,6 @@ export class FileStore {
   async capabilityFetch(request: Request): Promise<Response> {
     try {
       const runId = request.headers.get('x-run') ?? ''; const url = new URL(request.url);
-      if (this.acquisitions.has(runId)) {
-        const host = this.acquisitionHost(runId);
-        if (request.method === 'GET' && url.pathname === '/fetch') return await host.fetch();
-        if (request.method === 'PUT' && url.pathname === '/write') return Response.json(await host.write({ mediaType: request.headers.get('content-type') ?? '' }, request.body ?? streamText('')));
-        return new Response('unknown acquisition capability operation', { status: 400 });
-      }
       const host = this.host(runId);
       if (request.method === 'GET' && url.pathname.startsWith('/read/')) {
         const range = url.searchParams.has('start') ? { start: Number(url.searchParams.get('start')), end: Number(url.searchParams.get('end')) } : undefined;

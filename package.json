@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit && tsc -p plugins/tsconfig.json && tsc -p runtime/tsconfig.json",
-    "test": "vitest run tests/contract.test.ts tests/intake.test.ts tests/gallery.test.ts tests/publications.test.ts tests/acquisition.test.ts tests/dynamic.test.ts tests/acquisition-dynamic.test.ts",
+    "test": "vitest run tests/contract.test.ts tests/intake.test.ts tests/gallery.test.ts tests/publications.test.ts tests/acquisition.test.ts tests/dynamic.test.ts tests/acquisition-flow.test.ts",
     "test:browser": "playwright test",
     "demo": "tsx src/server.ts",
     "test:runtime": "node runtime/probe.mjs"
