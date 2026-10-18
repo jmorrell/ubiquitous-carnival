@@ -48,7 +48,7 @@ output{display:block;font-variant-numeric:tabular-nums;margin:7px 0}
       data.ok ? waiting.resolve(data) : waiting.reject(new Error(data.error));
     };
     try {
-      const original = context.item.originals.find((a) => a.mediaType.startsWith("video/"));
+      const original = context.item.artifacts.find((a) => a.mediaType.startsWith("video/"));
       if (!original) throw new Error("No video original");
       const transcript = await read(transcriptArtifact);
       segments = JSON.parse(new TextDecoder().decode(transcript.bytes)).segments;

@@ -1,17 +1,13 @@
 {
-  "observedAt": "2026-10-18T02:30:32.048Z",
+  "observedAt": "2026-10-18T02:55:15.369Z",
   "backend": "Miniflare 5 / workerd Dynamic Workers",
-  "flow": "ingestion completes → Input with stored originals → process once → publish → view",
+  "flow": "completed Input → process once → one or more manifests → atomic published items → scoped views",
   "gallery": {
     "input": {
-      "itemId": "item_b119fe1b-0dbc-4139-b0de-31cc560f8aaa",
-      "source": {
-        "kind": "upload"
-      },
+      "inputId": "input_96137cf1-2b3e-4df1-843f-0647708f4753",
       "originals": [
         {
-          "id": "artifact_c99c0819-ad1f-491e-818f-500a811a9b63",
-          "itemId": "item_b119fe1b-0dbc-4139-b0de-31cc560f8aaa",
+          "id": "artifact_a6f05f30-fe30-4f69-9fef-5dd307a81dc4",
           "role": "original",
           "mediaType": "image/svg+xml",
           "filename": "blue.svg",
@@ -20,8 +16,7 @@
           "size": 115
         },
         {
-          "id": "artifact_a20c5f6c-04b0-4720-b55b-572ac65b685e",
-          "itemId": "item_b119fe1b-0dbc-4139-b0de-31cc560f8aaa",
+          "id": "artifact_ceb80105-8d38-4ca7-8128-3ec203e2c509",
           "role": "original",
           "mediaType": "image/svg+xml",
           "filename": "green.svg",
@@ -31,37 +26,80 @@
         }
       ]
     },
-    "publication": {
-      "title": "Image gallery",
-      "description": "2 original images in input order.",
-      "artifacts": [
-        "artifact_1163d90a-0ba5-4bb1-bdde-8047a1159e6a",
-        "artifact_e59776bc-f169-43ed-9376-6ac7cc584ba3"
-      ],
-      "search": [
-        {
-          "text": "photos/blue.svg",
-          "artifact": "artifact_c99c0819-ad1f-491e-818f-500a811a9b63"
+    "results": [
+      {
+        "item": {
+          "itemId": "item_5a5336bb-357b-4e3e-a557-e8180b366fdd",
+          "artifacts": [
+            {
+              "id": "artifact_a2e84749-4f54-41f3-91ab-178f23979b43",
+              "role": "gallery-manifest",
+              "mediaType": "application/json",
+              "sha256": "9572ccbe9adb6934acd82632866b028670b93655575e4537b355ba0ca9922d1b",
+              "size": 315
+            },
+            {
+              "id": "artifact_03902a6f-ee19-4a9c-8a9b-035fc4a672a8",
+              "role": "gallery-list",
+              "mediaType": "text/plain",
+              "sha256": "987c2f61510e35c4da70ef9466703b1edf577429fc57bc32b01e94c2639c0b3e",
+              "size": 38
+            },
+            {
+              "id": "artifact_a6f05f30-fe30-4f69-9fef-5dd307a81dc4",
+              "role": "original",
+              "mediaType": "image/svg+xml",
+              "filename": "blue.svg",
+              "relativePath": "photos/blue.svg",
+              "sha256": "a8ea801d6a338b9f75c09838aead926ee9f5ed2a0b12ad43747fa88cf2d11a35",
+              "size": 115
+            },
+            {
+              "id": "artifact_ceb80105-8d38-4ca7-8128-3ec203e2c509",
+              "role": "original",
+              "mediaType": "image/svg+xml",
+              "filename": "green.svg",
+              "relativePath": "photos/day-2/green.svg",
+              "sha256": "8564b16629506ca8625ce5170a8682cb4eed17747c5e3cae3b4435f249140022",
+              "size": 115
+            }
+          ]
         },
-        {
-          "text": "photos/day-2/green.svg",
-          "artifact": "artifact_a20c5f6c-04b0-4720-b55b-572ac65b685e"
+        "publication": {
+          "title": "Image gallery",
+          "description": "2 original images in input order.",
+          "artifacts": [
+            "artifact_a2e84749-4f54-41f3-91ab-178f23979b43",
+            "artifact_03902a6f-ee19-4a9c-8a9b-035fc4a672a8",
+            "artifact_a6f05f30-fe30-4f69-9fef-5dd307a81dc4",
+            "artifact_ceb80105-8d38-4ca7-8128-3ec203e2c509"
+          ],
+          "search": [
+            {
+              "text": "photos/blue.svg",
+              "artifact": "artifact_a6f05f30-fe30-4f69-9fef-5dd307a81dc4"
+            },
+            {
+              "text": "photos/day-2/green.svg",
+              "artifact": "artifact_ceb80105-8d38-4ca7-8128-3ec203e2c509"
+            }
+          ],
+          "presentation": {
+            "fallback": "artifact_03902a6f-ee19-4a9c-8a9b-035fc4a672a8"
+          }
         }
-      ],
-      "presentation": {
-        "fallback": "artifact_e59776bc-f169-43ed-9376-6ac7cc584ba3"
       }
-    },
+    ],
     "manifest": {
       "images": [
         {
-          "artifact": "artifact_c99c0819-ad1f-491e-818f-500a811a9b63",
+          "artifact": "artifact_a6f05f30-fe30-4f69-9fef-5dd307a81dc4",
           "filename": "blue.svg",
           "relativePath": "photos/blue.svg",
           "caption": "photos/blue.svg"
         },
         {
-          "artifact": "artifact_a20c5f6c-04b0-4720-b55b-572ac65b685e",
+          "artifact": "artifact_ceb80105-8d38-4ca7-8128-3ec203e2c509",
           "filename": "green.svg",
           "relativePath": "photos/day-2/green.svg",
           "caption": "photos/day-2/green.svg"
@@ -71,66 +109,254 @@
     "processor": {
       "plugin": "image-gallery",
       "version": "0.1.0",
-      "codeSha256": "5eb57cc5c7aa1f136f037f49f73c2b5e01de03ca0b8167dceb0a257adc7527be"
+      "codeSha256": "942d86902b9e09f56f97f54ab0066d5225f7cb492b17c37584dd0887f605a2a1"
+    }
+  },
+  "photos": {
+    "input": {
+      "inputId": "input_cb12a010-3457-4617-8af2-1c8e4cfdf4cc",
+      "originals": [
+        {
+          "id": "artifact_d34e298b-fe49-4f2f-a734-d8a621b962fe",
+          "role": "original",
+          "mediaType": "image/svg+xml",
+          "filename": "blue.svg",
+          "relativePath": "photos/blue.svg",
+          "sha256": "a8ea801d6a338b9f75c09838aead926ee9f5ed2a0b12ad43747fa88cf2d11a35",
+          "size": 115
+        },
+        {
+          "id": "artifact_6a0f6e50-3b7d-4eb3-96a3-5336731acdec",
+          "role": "original",
+          "mediaType": "image/svg+xml",
+          "filename": "green.svg",
+          "relativePath": "photos/day-2/green.svg",
+          "sha256": "8564b16629506ca8625ce5170a8682cb4eed17747c5e3cae3b4435f249140022",
+          "size": 115
+        }
+      ]
+    },
+    "results": [
+      {
+        "item": {
+          "itemId": "item_8f8a4c22-f6bc-4d3b-b41c-dc8bccfcac59",
+          "artifacts": [
+            {
+              "id": "artifact_d34e298b-fe49-4f2f-a734-d8a621b962fe",
+              "role": "original",
+              "mediaType": "image/svg+xml",
+              "filename": "blue.svg",
+              "relativePath": "photos/blue.svg",
+              "sha256": "a8ea801d6a338b9f75c09838aead926ee9f5ed2a0b12ad43747fa88cf2d11a35",
+              "size": 115
+            },
+            {
+              "id": "artifact_6a9eab56-fc8f-48c0-a9e2-458536a29b77",
+              "role": "photo-caption",
+              "mediaType": "text/plain",
+              "sha256": "bb500013a354e4095fc6222f7351f194101c944f8b877cace0e1dee4df1c0445",
+              "size": 15
+            },
+            {
+              "id": "artifact_21cddc84-1fce-412b-975f-ddb27c78cb7d",
+              "role": "photo-index",
+              "mediaType": "application/json",
+              "sha256": "4ab70510206d13d26e77f86cfdb39ed2bbbd46a6578e16d790ef6138cf6f15a4",
+              "size": 37
+            }
+          ]
+        },
+        "publication": {
+          "title": "photos/blue.svg",
+          "description": "One image from the submitted batch.",
+          "artifacts": [
+            "artifact_d34e298b-fe49-4f2f-a734-d8a621b962fe",
+            "artifact_6a9eab56-fc8f-48c0-a9e2-458536a29b77",
+            "artifact_21cddc84-1fce-412b-975f-ddb27c78cb7d"
+          ],
+          "search": [
+            {
+              "text": "photos/blue.svg",
+              "artifact": "artifact_d34e298b-fe49-4f2f-a734-d8a621b962fe"
+            }
+          ],
+          "presentation": {
+            "fallback": "artifact_6a9eab56-fc8f-48c0-a9e2-458536a29b77"
+          }
+        }
+      },
+      {
+        "item": {
+          "itemId": "item_65ca5174-e768-401a-96b9-08c6456572af",
+          "artifacts": [
+            {
+              "id": "artifact_6a0f6e50-3b7d-4eb3-96a3-5336731acdec",
+              "role": "original",
+              "mediaType": "image/svg+xml",
+              "filename": "green.svg",
+              "relativePath": "photos/day-2/green.svg",
+              "sha256": "8564b16629506ca8625ce5170a8682cb4eed17747c5e3cae3b4435f249140022",
+              "size": 115
+            },
+            {
+              "id": "artifact_d428ff73-242c-423a-91e7-c7fdc5b93286",
+              "role": "photo-caption",
+              "mediaType": "text/plain",
+              "sha256": "34928483a4d99f003dc563f77f820713b8034f3f027cbd22e89c3493726a5d08",
+              "size": 22
+            },
+            {
+              "id": "artifact_21cddc84-1fce-412b-975f-ddb27c78cb7d",
+              "role": "photo-index",
+              "mediaType": "application/json",
+              "sha256": "4ab70510206d13d26e77f86cfdb39ed2bbbd46a6578e16d790ef6138cf6f15a4",
+              "size": 37
+            }
+          ]
+        },
+        "publication": {
+          "title": "photos/day-2/green.svg",
+          "description": "One image from the submitted batch.",
+          "artifacts": [
+            "artifact_6a0f6e50-3b7d-4eb3-96a3-5336731acdec",
+            "artifact_d428ff73-242c-423a-91e7-c7fdc5b93286",
+            "artifact_21cddc84-1fce-412b-975f-ddb27c78cb7d"
+          ],
+          "search": [
+            {
+              "text": "photos/day-2/green.svg",
+              "artifact": "artifact_6a0f6e50-3b7d-4eb3-96a3-5336731acdec"
+            }
+          ],
+          "presentation": {
+            "fallback": "artifact_d428ff73-242c-423a-91e7-c7fdc5b93286"
+          }
+        }
+      }
+    ],
+    "sharedArtifact": "artifact_21cddc84-1fce-412b-975f-ddb27c78cb7d",
+    "siblingArtifactReadDenied": true,
+    "processor": {
+      "plugin": "photo-items",
+      "version": "0.1.0",
+      "codeSha256": "974a1f0286bc350332e4acdb9cc13469224a5572cf5875b138416b53c13b3410"
     }
   },
   "video": {
-    "publication": {
-      "title": "Synthetic video: blue and green",
-      "description": "Controlled transcript fixture; no real transcription provider.",
-      "artifacts": [
-        "artifact_450a2b00-056b-4d83-942e-09d4904a7fa8",
-        "artifact_e29aab11-1965-4028-9651-b23c1ea8705f",
-        "artifact_8725cedb-4ed5-4ce6-98a7-be6919f1fbef",
-        "artifact_de3d1099-17cd-4c5b-8628-13bfe9066013"
-      ],
-      "search": [
-        {
-          "text": "A blue square appears.",
-          "artifact": "artifact_4a3e1bea-2cab-4d7e-94a8-4c916d3864af"
-        },
-        {
-          "text": "A green square appears.",
-          "artifact": "artifact_4a3e1bea-2cab-4d7e-94a8-4c916d3864af"
+    "result": {
+      "item": {
+        "itemId": "item_0deda717-e4e1-4ae8-99b8-21d338d859f7",
+        "artifacts": [
+          {
+            "id": "artifact_e66511a9-dca6-441d-8e0f-d7bdc5121618",
+            "role": "transcript",
+            "mediaType": "application/json",
+            "sha256": "98632d52ae383ed4baa05713270d42aae576cede8d24e2653214478a34574f65",
+            "size": 135
+          },
+          {
+            "id": "artifact_7a80ab0e-f4c8-4493-aaa5-83b6651fb4ca",
+            "role": "transcript-text",
+            "mediaType": "text/plain",
+            "sha256": "5234fc8f258f7603a77e0b92f9e2806ff89390c56e42b4391a0b4567487aeec5",
+            "size": 46
+          },
+          {
+            "id": "artifact_e0af3edb-9dd7-47f5-be88-700633258e4a",
+            "role": "thumbnail",
+            "mediaType": "image/svg+xml",
+            "sha256": "7e5c4fbac3a3e5492cbb76287b13e34992ac358ae8240ee9ada0dc4d625aee25",
+            "size": 257
+          },
+          {
+            "id": "artifact_e3a0b63b-38f8-4670-92d4-0d7207fcec37",
+            "role": "component",
+            "mediaType": "text/html",
+            "sha256": "ced01d92c4234d408b45d8cf3c98004b8f6fe174f582e34e0ad9511f113961f4",
+            "size": 3493
+          },
+          {
+            "id": "artifact_6ba8a307-2186-4e40-bf84-7289730a397a",
+            "role": "original",
+            "mediaType": "video/webm",
+            "filename": "video.webm",
+            "sha256": "232ff8852238c43e4314ecff2e7424a22e65eaec100697082b9175e61fdc7288",
+            "size": 7842
+          }
+        ]
+      },
+      "publication": {
+        "title": "Synthetic video: blue and green",
+        "description": "Controlled transcript fixture; no real transcription provider.",
+        "artifacts": [
+          "artifact_e66511a9-dca6-441d-8e0f-d7bdc5121618",
+          "artifact_7a80ab0e-f4c8-4493-aaa5-83b6651fb4ca",
+          "artifact_e0af3edb-9dd7-47f5-be88-700633258e4a",
+          "artifact_e3a0b63b-38f8-4670-92d4-0d7207fcec37",
+          "artifact_6ba8a307-2186-4e40-bf84-7289730a397a"
+        ],
+        "search": [
+          {
+            "text": "A blue square appears.",
+            "artifact": "artifact_6ba8a307-2186-4e40-bf84-7289730a397a"
+          },
+          {
+            "text": "A green square appears.",
+            "artifact": "artifact_6ba8a307-2186-4e40-bf84-7289730a397a"
+          }
+        ],
+        "presentation": {
+          "fallback": "artifact_7a80ab0e-f4c8-4493-aaa5-83b6651fb4ca",
+          "thumbnail": "artifact_e0af3edb-9dd7-47f5-be88-700633258e4a",
+          "component": "artifact_e3a0b63b-38f8-4670-92d4-0d7207fcec37"
         }
-      ],
-      "presentation": {
-        "fallback": "artifact_e29aab11-1965-4028-9651-b23c1ea8705f",
-        "thumbnail": "artifact_8725cedb-4ed5-4ce6-98a7-be6919f1fbef",
-        "component": "artifact_de3d1099-17cd-4c5b-8628-13bfe9066013"
       }
     },
     "processor": {
       "plugin": "video-viewer",
       "version": "0.1.0",
-      "codeSha256": "48c79a2412b73aec04c2a26c4fe83b0f617e6d99966f42c7edf941d49def2947"
+      "codeSha256": "cd67798163f2a345bc2c7c7b51494482e0487da1dac8cbdfcdae2f58bd0d6249"
     }
   },
   "parquet": {
-    "publication": {
-      "title": "Parquet public summary",
-      "description": "2 rows; label and value selected. Secret column excluded.",
-      "artifacts": [
-        "artifact_015bb96a-c145-4d0b-96a0-00e098fe27d4"
-      ],
-      "search": [
-        {
-          "text": "Harbor: 12",
-          "artifact": "artifact_015bb96a-c145-4d0b-96a0-00e098fe27d4"
-        },
-        {
-          "text": "Forest: 34",
-          "artifact": "artifact_015bb96a-c145-4d0b-96a0-00e098fe27d4"
+    "result": {
+      "item": {
+        "itemId": "item_88b919ee-783e-4a21-b5b9-3208b13fd949",
+        "artifacts": [
+          {
+            "id": "artifact_d333fd87-0059-4d78-a142-99eb95d4abcc",
+            "role": "table-summary",
+            "mediaType": "text/plain",
+            "sha256": "7a4b4eb4a48c325cb35b1fc0433a7e76617a673c6f752d2aa454394f8f854466",
+            "size": 21
+          }
+        ]
+      },
+      "publication": {
+        "title": "Parquet public summary",
+        "description": "2 rows; label and value selected. Secret column excluded.",
+        "artifacts": [
+          "artifact_d333fd87-0059-4d78-a142-99eb95d4abcc"
+        ],
+        "search": [
+          {
+            "text": "Harbor: 12",
+            "artifact": "artifact_d333fd87-0059-4d78-a142-99eb95d4abcc"
+          },
+          {
+            "text": "Forest: 34",
+            "artifact": "artifact_d333fd87-0059-4d78-a142-99eb95d4abcc"
+          }
+        ],
+        "presentation": {
+          "fallback": "artifact_d333fd87-0059-4d78-a142-99eb95d4abcc"
         }
-      ],
-      "presentation": {
-        "fallback": "artifact_015bb96a-c145-4d0b-96a0-00e098fe27d4"
       }
     },
     "processor": {
       "plugin": "parquet-summary",
       "version": "0.1.0",
-      "codeSha256": "04814e3906d4214057a922548e37bf3acfb02a007e26e39c37367ce6dc3f5879"
+      "codeSha256": "058603b166a0a238c172515abaac873805b4fb1e2464cb64e913374434cb4071"
     },
     "ranges": [
       {
@@ -153,8 +379,9 @@
       "dataStart": 87,
       "dataEnd": 144
     },
-    "secretPageRead": false
+    "secretPageRead": false,
+    "originalNotGrantedToViewer": true
   },
-  "restartRetainedPublications": true,
+  "restartRetainedInputResults": true,
   "replacementProcessingDenied": true
 }

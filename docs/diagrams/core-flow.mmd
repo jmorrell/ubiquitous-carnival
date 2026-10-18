@@ -1,18 +1,18 @@
 flowchart TB
-  subgraph HOST[Trusted host: ingestion completes before Input]
+  subgraph HOST[Trusted host]
     direction TB
     A[Ingestion APIs<br/>URL capture · file or folder<br/>Async large-file upload<br/>Transport not specified] --> B[Store all originals<br/>Wait for completion<br/>Choose one processor]
-    B --> I[Input: itemId + source + originals array<br/>Each original: filename / relativePath<br/>+ stored artifact details]
+    B --> I[Input: inputId + originals array<br/>Each original: stored details<br/>+ optional filename / path / provenance]
   end
   subgraph PLUGIN[Untrusted processor]
     direction LR
-    C[Process collection<br/>Scoped read · write · transcribe] --> D[Return manifest<br/>Artifact references + metadata]
+    C[Process batch once<br/>Scoped read · write · transcribe] --> D[Return 1+ manifests<br/>Explicit artifact sets + metadata]
   end
   I --> C
   subgraph SAVE[Trusted host owns publication]
     direction LR
-    E{Validate result} -->|valid| F[Save one publication]
-    E -->|invalid / failed| X[No published result]
+    E{Validate ALL manifests<br/>References + item membership} -->|valid| F[Atomically create items<br/>Host assigns each item ID<br/>Mark input processed]
+    E -->|invalid / failed| X[No published items]
+    F --> G[Per-item search + fallback<br/>Optional isolated viewer<br/>Only explicit artifact set]
   end
   D --> E
-  F --> G[Search + readable fallback<br/>Optional isolated viewer]

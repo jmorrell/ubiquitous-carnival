@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { FileStore, streamText } from '../src/store';
 import { runInProcess } from '../src/runner';
 import { galleryProcessor, galleryRegistration, type GalleryManifest } from '../plugins/gallery';
+import { photoItemsProcessor, photoItemsRegistration } from '../plugins/photo-items';
 import { createVideoProcessor, videoRegistration } from '../plugins/video';
 import { parquetProcessor, parquetRegistration } from '../plugins/parquet';
 
@@ -12,29 +13,50 @@ const directories: string[] = [];
 afterEach(async () => { for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true }); });
 async function setup() {
   const directory = await mkdtemp(join(tmpdir(), 'folder-gallery-')); directories.push(directory);
-  const store = await FileStore.open(directory); await store.install(galleryRegistration);
+  const store = await FileStore.open(directory); await store.install(galleryRegistration); await store.install(photoItemsRegistration);
   return { store, directory };
 }
-
-it('passes a folder as one item to a gallery processor and preserves each original path', async () => {
-  const { store, directory } = await setup();
-  const paths = ['blue.svg', 'day-2/green.svg'];
-  const originals = await Promise.all(paths.map(async path => ({
+async function images() {
+  return Promise.all(['blue.svg', 'day-2/green.svg'].map(async path => ({
     filename: path.split('/').at(-1), relativePath: `photos/${path}`, mediaType: 'image/svg+xml',
     body: new Blob([await readFile(new URL('../fixtures/gallery/' + path, import.meta.url))]).stream(),
   })));
-  const item = await store.intake({ kind: 'upload' }, originals);
-  expect(store.items()).toHaveLength(1); expect(item.originals).toHaveLength(2);
-  const run = await store.begin(item.itemId, galleryRegistration.id);
-  const input = store.input(run.id); const host = store.host(run.id);
+}
+
+it('turns an image input into one gallery with explicit original references', async () => {
+  const { store, directory } = await setup();
+  const input = await store.intake(await images());
+  expect(store.items()).toEqual([]); expect(input.originals).toHaveLength(2);
+  const run = await store.begin(input.inputId, galleryRegistration.id); const host = store.host(run.id);
   const contents = await Promise.all(input.originals.map(async original => new Response(await host.read(original.id)).text()));
   expect(contents[0]).toContain('#2463eb'); expect(contents[1]).toContain('#12966a');
-  const result = await store.publish(run.id, await galleryProcessor.process(input, host));
-  const manifest: GalleryManifest = await new Response(store.visibleArtifact(item.itemId, result.publication.artifacts[0]).body).json();
-  expect(manifest.images.map(image => [image.artifact, image.filename, image.relativePath])).toEqual(item.originals.map(original => [original.id, original.filename, original.relativePath]));
-  expect(await new Response(store.visibleArtifact(item.itemId, result.publication.presentation.fallback).body).text()).toBe('photos/blue.svg\nphotos/day-2/green.svg');
-  expect(store.search('day-2/green')).toEqual([{ itemId: item.itemId, text: 'photos/day-2/green.svg', artifact: item.originals[1].id }]);
-  expect((await FileStore.open(directory)).context(item.itemId)).toEqual(result);
+  const results = await store.publish(run.id, await galleryProcessor.process(store.input(run.id), host));
+  expect(results).toHaveLength(1); const result = results[0]; const itemId = result.item.itemId;
+  const manifest: GalleryManifest = await new Response(store.visibleArtifact(itemId, result.publication.artifacts[0]).body).json();
+  expect(manifest.images.map(image => [image.artifact, image.filename, image.relativePath])).toEqual(input.originals.map(original => [original.id, original.filename, original.relativePath]));
+  expect(await new Response(store.visibleArtifact(itemId, result.publication.presentation.fallback).body).text()).toBe('photos/blue.svg\nphotos/day-2/green.svg');
+  expect(store.search('day-2/green')).toEqual([{ itemId, text: 'photos/day-2/green.svg', artifact: input.originals[1].id }]);
+  expect(result.item.artifacts.filter(artifact => artifact.role === 'original')).toEqual(input.originals);
+  expect((await FileStore.open(directory)).results(input.inputId)).toEqual(results);
+});
+
+it('lets the selected processor turn equivalent image bytes into separate items', async () => {
+  const { store, directory } = await setup();
+  // Fresh inputs compare processors without reprocessing a completed input.
+  const galleryInput = await store.intake(await images()); const photoInput = await store.intake(await images());
+  expect(photoInput.originals.map(original => original.sha256)).toEqual(galleryInput.originals.map(original => original.sha256));
+  const gallery = await runInProcess(store, galleryInput.inputId, galleryRegistration.id, galleryProcessor);
+  const photos = await runInProcess(store, photoInput.inputId, photoItemsRegistration.id, photoItemsProcessor);
+  expect(gallery).toHaveLength(1); expect(photos).toHaveLength(2);
+  expect(new Set(photos.map(view => view.item.itemId)).size).toBe(2);
+  for (const [index, view] of photos.entries()) {
+    expect(view.item.artifacts.filter(artifact => artifact.role === 'original')).toEqual([photoInput.originals[index]]);
+    expect(view.publication.search).toEqual([{ text: photoInput.originals[index].relativePath, artifact: photoInput.originals[index].id }]);
+  }
+  const shared = photos[0].item.artifacts.find(artifact => artifact.role === 'photo-index')!;
+  expect(photos[1].publication.artifacts).toContain(shared.id);
+  expect(await new Response(store.visibleArtifact(photos[1].item.itemId, shared.id).body).json()).toEqual({ title: 'Imported images', count: 2 });
+  expect((await FileStore.open(directory)).results(photoInput.inputId)).toEqual(photos);
 });
 
 it('single-file examples reject a collection instead of silently ignoring its other members', async () => {
@@ -44,10 +66,10 @@ it('single-file examples reject a collection instead of silently ignoring its ot
     [parquetRegistration, parquetProcessor, 'application/vnd.apache.parquet'],
   ] as const) {
     await store.install(registration);
-    const item = await store.intake({ kind: 'upload' }, [
+    const input = await store.intake([
       { mediaType, body: streamText('first') }, { mediaType, body: streamText('second') },
     ]);
-    await expect(runInProcess(store, item.itemId, registration.id, processor)).rejects.toThrow('requires exactly one supported original');
-    expect(store.isPublished(item.itemId)).toBe(false);
+    await expect(runInProcess(store, input.inputId, registration.id, processor)).rejects.toThrow('requires exactly one supported original');
+    expect(store.isProcessed(input.inputId)).toBe(false); expect(store.results(input.inputId)).toEqual([]);
   }
 });

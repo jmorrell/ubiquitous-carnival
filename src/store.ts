@@ -3,16 +3,16 @@ import { createReadStream } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
-import type { Artifact, ByteRange, Item, OriginalArtifact, ProcessingHost, ProcessorRegistration, Publication, Source, TranscriptSegment, ViewContext } from './contract';
+import type { Artifact, ByteRange, Input, Item, OriginalArtifact, ProcessingHost, ProcessorRegistration, Publication, TranscriptSegment, ViewContext } from './contract';
 
 type Installed = { registration: ProcessorRegistration; epoch: string; active: boolean };
 type ProcessorInfo = { plugin: string; version: string; codeSha256?: string };
 type StoredPublication = { publication: Publication; processor: ProcessorInfo };
-type State = { schemaVersion: 3; items: Record<string, Item>; artifacts: Record<string, Artifact>; publications: Record<string, StoredPublication>; plugins: Record<string, Installed> };
+type State = { schemaVersion: 4; inputs: Record<string, Input>; items: Record<string, Item>; artifacts: Record<string, Artifact>; publications: Record<string, StoredPublication>; processed: Record<string, string[]>; plugins: Record<string, Installed> };
 type PendingArtifact = { artifact: Artifact; path: string };
 /** Execution authority and incomplete output are transient, never saved as a draft. */
-type Run = ProcessorInfo & { id: string; itemId: string; epoch: string; outputs: Map<string, PendingArtifact>; finishing: boolean };
-const blank = (): State => ({ schemaVersion: 3, items: {}, artifacts: {}, publications: {}, plugins: {} });
+type Run = ProcessorInfo & { id: string; inputId: string; epoch: string; outputs: Map<string, PendingArtifact>; finishing: boolean };
+const blank = (): State => ({ schemaVersion: 4, inputs: {}, items: {}, artifacts: {}, publications: {}, processed: {}, plugins: {} });
 const clone = <T>(value: T): T => structuredClone(value);
 const id = (prefix: string) => `${prefix}_${randomUUID()}`;
 function requireThat(test: unknown, message: string): asserts test { if (!test) throw new Error(message); }
@@ -26,6 +26,7 @@ export interface OriginalUpload {
   body: ReadableStream<Uint8Array>;
   filename?: string;
   relativePath?: string;
+  sourceUrl?: string;
 }
 /** Explicitly synthetic and deterministic. No audio recognition or provider call is claimed. */
 export const syntheticTranscriber: Transcriber = async () => [
@@ -33,17 +34,17 @@ export const syntheticTranscriber: Transcriber = async () => [
   { startMs: 1000, endMs: 1900, text: 'A green square appears.' },
 ];
 
-/** Single-process prototype: one publication per item, atomic metadata snapshots, immutable blobs. */
+/** Single-process prototype: process an input once into an atomic set of items, with immutable blobs. */
 export class FileStore {
   private queue: Promise<unknown> = Promise.resolve();
   private runs = new Map<string, Run>();
-  readonly audit: { reads: { run: string; itemId: string; artifact: string; range?: ByteRange }[] } = { reads: [] };
+  readonly audit: { reads: { run: string; inputId: string; artifact: string; range?: ByteRange }[] } = { reads: [] };
   private constructor(readonly directory: string, private state: State, private transcriber: Transcriber) {}
   static async open(directory: string, transcriber: Transcriber = syntheticTranscriber) {
     let state: State;
     try {
       state = JSON.parse(await fs.readFile(join(directory, 'metadata.json'), 'utf8'));
-      requireThat(state.schemaVersion === 3, 'incompatible store format; use a fresh directory (for example .demo-store-inputs)');
+      requireThat(state.schemaVersion === 4, 'incompatible store format; use a fresh directory (for example .demo-store-publications)');
     } catch (error: any) { if (error.code !== 'ENOENT') throw error; state = blank(); }
     await fs.mkdir(join(directory, 'blobs'), { recursive: true });
     await fs.mkdir(join(directory, '.work'), { recursive: true });
@@ -91,27 +92,28 @@ export class FileStore {
     try { await fs.link(path, join(this.directory, 'blobs', sha256)); return true; }
     catch (error: any) { if (error.code !== 'EEXIST') throw error; return false; }
   }
-  async intake(source: Source, originals: readonly OriginalUpload[]): Promise<Item> {
+  async intake(originals: readonly OriginalUpload[]): Promise<Input> {
     const unread = new Set(Array.isArray(originals) ? originals.map(original => original?.body) : []);
     const staged: { path: string; artifact: OriginalArtifact }[] = []; let committed = false;
     try {
       requireThat(Array.isArray(originals) && originals.length > 0, 'at least one original is required');
       const uploads = originals.map(original => {
         requireThat(original && typeof original.mediaType === 'string' && original.mediaType.length < 150 && /^[\w!#$&^.+-]+\/[\w!#$&^.+-]+(?:;[^\r\n]*)?$/.test(original.mediaType), 'invalid original media type');
-        const { mediaType, body, filename, relativePath } = original;
+        const { mediaType, body, filename, relativePath, sourceUrl } = original;
         requireThat(body && typeof body.getReader === 'function', 'original byte stream required');
         if (filename !== undefined) requireThat(typeof filename === 'string' && filename.length > 0 && filename.length <= 255 && !/[\/\\\u0000-\u001f\u007f]/.test(filename) && filename !== '.' && filename !== '..', 'invalid original filename');
         if (relativePath !== undefined) requireThat(typeof relativePath === 'string' && relativePath.length > 0 && relativePath.length <= 4096 && !/[\\\u0000-\u001f\u007f]/.test(relativePath) && !/^[A-Za-z]:/.test(relativePath) && relativePath.split('/').every(part => part !== '' && part !== '.' && part !== '..'), 'invalid original relative path');
-        return { mediaType, body, ...(filename === undefined ? {} : { filename }), ...(relativePath === undefined ? {} : { relativePath }) };
+        if (sourceUrl !== undefined) requireThat(typeof sourceUrl === 'string' && sourceUrl.length > 0 && sourceUrl.length <= 8192 && !/[\u0000-\u001f\u007f]/.test(sourceUrl), 'invalid original source URL');
+        return { mediaType, body, ...(filename === undefined ? {} : { filename }), ...(relativePath === undefined ? {} : { relativePath }), ...(sourceUrl === undefined ? {} : { sourceUrl }) };
       });
-      const itemId = id('item'); const item: Item = { itemId, source: clone(source), originals: [] };
-      // Keep partial uploads outside the item index; all streams must finish before committing.
+      const inputId = id('input'); const input: Input = { inputId, originals: [] };
+      // Keep partial uploads outside the input index; all streams must finish before committing.
       for (const { body, ...metadata } of uploads) {
         const { path, ...stored } = await this.temporaryBlob(body, join(this.directory, '.work'));
         unread.delete(body);
-        staged.push({ path, artifact: { id: id('artifact'), itemId, role: 'original', ...metadata, ...stored } });
+        staged.push({ path, artifact: { id: id('artifact'), role: 'original', ...metadata, ...stored } });
       }
-      item.originals = staged.map(entry => entry.artifact);
+      input.originals = staged.map(entry => entry.artifact);
       await this.serialize(async () => {
         const created: string[] = [];
         try {
@@ -120,14 +122,14 @@ export class FileStore {
             if (await this.promote(path, artifact.sha256)) created.push(artifact.sha256);
             next.artifacts[artifact.id] = artifact;
           }
-          next.items[itemId] = item;
+          next.inputs[inputId] = input;
           await this.save(next); this.state = next;
         } catch (error) {
           for (const sha256 of created) await fs.rm(join(this.directory, 'blobs', sha256), { force: true });
           throw error;
         }
       });
-      committed = true; return clone(item);
+      committed = true; return clone(input);
     } catch (error) {
       // Later streams may already own resources even though intake has not pulled their bytes.
       // Cancellation is best-effort: one failed cleanup must not mask the upload's rejection.
@@ -139,31 +141,37 @@ export class FileStore {
       if (committed) await cleanup.catch(() => {}); else await cleanup;
     }
   }
+  inputs() { return clone(Object.values(this.state.inputs)); }
   items() { return clone(Object.values(this.state.items)); }
   isPublished(itemId: string) { return Boolean(this.state.publications[itemId]); }
-  candidates(itemId: string): ProcessorRegistration[] {
-    const item = this.state.items[itemId]; requireThat(item, 'unknown item');
-    return clone(Object.values(this.state.plugins).filter(p => p.active && item.originals.every(a => p.registration.accepts.some(pattern => a.mediaType === pattern || (pattern.endsWith('/*') && a.mediaType.startsWith(pattern.slice(0, -1)))))).map(p => p.registration));
+  isProcessed(inputId: string) { return Object.hasOwn(this.state.processed, inputId); }
+  results(inputId: string): ViewContext[] {
+    requireThat(this.state.inputs[inputId], 'unknown input');
+    return (this.state.processed[inputId] ?? []).map(itemId => this.context(itemId));
   }
-  async begin(itemId: string, choice?: string, codeSha256?: string): Promise<{ id: string; itemId: string }> {
+  candidates(inputId: string): ProcessorRegistration[] {
+    const input = this.state.inputs[inputId]; requireThat(input, 'unknown input');
+    return clone(Object.values(this.state.plugins).filter(p => p.active && input.originals.every(a => p.registration.accepts.some(pattern => a.mediaType === pattern || (pattern.endsWith('/*') && a.mediaType.startsWith(pattern.slice(0, -1)))))).map(p => p.registration));
+  }
+  async begin(inputId: string, choice?: string, codeSha256?: string): Promise<{ id: string; inputId: string }> {
     return this.serialize(async () => {
-      requireThat(!this.isPublished(itemId), 'item is already published');
-      requireThat(![...this.runs.values()].some(run => run.itemId === itemId), 'item is already processing');
-      const candidates = this.candidates(itemId);
+      requireThat(!this.isProcessed(inputId), 'input is already processed');
+      requireThat(![...this.runs.values()].some(run => run.inputId === inputId), 'input is already processing');
+      const candidates = this.candidates(inputId);
       requireThat(choice || candidates.length === 1, candidates.length > 1 ? 'explicit handler choice required' : 'no handler');
       const selected = candidates.find(p => p.id === (choice ?? candidates[0].id)); requireThat(selected, 'handler does not accept input');
-      const run: Run = { id: id('run'), itemId, plugin: selected.id, version: selected.version, codeSha256, epoch: this.state.plugins[selected.id].epoch, outputs: new Map(), finishing: false };
-      await fs.mkdir(join(this.directory, '.work', run.id)); this.runs.set(run.id, run); return { id: run.id, itemId };
+      const run: Run = { id: id('run'), inputId, plugin: selected.id, version: selected.version, codeSha256, epoch: this.state.plugins[selected.id].epoch, outputs: new Map(), finishing: false };
+      await fs.mkdir(join(this.directory, '.work', run.id)); this.runs.set(run.id, run); return { id: run.id, inputId };
     });
   }
-  input(runId: string) { const run = this.live(runId); return clone(this.state.items[run.itemId]); }
+  input(runId: string) { const run = this.live(runId); return clone(this.state.inputs[run.inputId]); }
   private live(runId: string): Run {
     const run = this.runs.get(runId); requireThat(run && !run.finishing, 'processing call is not live');
     const installed = this.state.plugins[run.plugin]; requireThat(installed?.active && installed.epoch === run.epoch, 'capability revoked'); return run;
   }
   private owned(run: Run, artifactId: string): PendingArtifact {
     const output = run.outputs.get(artifactId); if (output) return output;
-    const original = this.state.items[run.itemId].originals.find(artifact => artifact.id === artifactId);
+    const original = this.state.inputs[run.inputId].originals.find(artifact => artifact.id === artifactId);
     requireThat(original, 'artifact outside capability'); return { artifact: original, path: join(this.directory, 'blobs', original.sha256) };
   }
   private bytes(artifact: Artifact, range?: ByteRange, path = join(this.directory, 'blobs', artifact.sha256)): ReadableStream<Uint8Array> {
@@ -177,7 +185,7 @@ export class FileStore {
     return {
       read: async (artifactId, range) => {
         const run = this.live(runId); const { artifact, path } = this.owned(run, artifactId);
-        this.audit.reads.push({ run: runId, itemId: run.itemId, artifact: artifactId, range }); return this.bytes(artifact, range, path);
+        this.audit.reads.push({ run: runId, inputId: run.inputId, artifact: artifactId, range }); return this.bytes(artifact, range, path);
       },
       write: async (meta, body) => {
         this.live(runId); requireThat(typeof meta.role === 'string' && meta.role.length > 0 && meta.role.length < 100 && typeof meta.mediaType === 'string' && meta.mediaType.length > 0 && meta.mediaType.length < 150, 'invalid artifact metadata');
@@ -186,49 +194,64 @@ export class FileStore {
           // Recheck after the asynchronous stream; no authority survives removal or completion.
           const run = this.live(runId); const size = [...run.outputs.values()].reduce((n, value) => n + value.artifact.size, 0);
           requireThat(run.outputs.size < 100, 'artifact count quota exceeded'); requireThat(size + stored.size <= MAX_RUN, 'processing output quota exceeded');
-          const artifact: Artifact = { id: id('artifact'), itemId: run.itemId, role: meta.role, mediaType: meta.mediaType, ...stored };
+          const artifact: Artifact = { id: id('artifact'), role: meta.role, mediaType: meta.mediaType, ...stored };
           run.outputs.set(artifact.id, { artifact, path }); return clone(artifact);
         } catch (error) { await fs.rm(path, { force: true }); throw error; }
       },
       transcribe: async originalId => {
         const run = this.live(runId); const original = this.owned(run, originalId).artifact;
-        requireThat(this.state.items[run.itemId].originals.some(artifact => artifact.id === originalId) && original.mediaType.startsWith('video/'), 'transcription requires original video');
+        requireThat(this.state.inputs[run.inputId].originals.some(artifact => artifact.id === originalId) && original.mediaType.startsWith('video/'), 'transcription requires original video');
         requireThat(this.state.plugins[run.plugin].registration.grants.includes('transcribe'), 'transcription grant required');
         const result = await this.transcriber(clone(original)); this.live(runId); return clone(result);
       },
     };
   }
-  async publish(runId: string, publication: Publication) {
-    const itemId = await this.serialize(async () => {
-      const run = this.live(runId); const p = clone(publication);
-      requireThat(p && typeof p.title === 'string' && p.title.length <= 300 && typeof p.description === 'string' && p.description.length <= 2000, 'invalid publication metadata');
-      requireThat(Array.isArray(p.artifacts) && p.artifacts.length <= 100 && new Set(p.artifacts).size === p.artifacts.length, 'invalid artifact manifest');
-      for (const artifactId of p.artifacts) { this.owned(run, artifactId); requireThat(run.outputs.has(artifactId), 'publication needs processing outputs'); }
-      const visible = new Set([...this.state.items[run.itemId].originals.map(a => a.id), ...p.artifacts]);
-      requireThat(p.presentation && p.artifacts.includes(p.presentation.fallback) && this.owned(run, p.presentation.fallback).artifact.mediaType === 'text/plain', 'readable text fallback required');
-      for (const value of [p.presentation.thumbnail, p.presentation.component]) if (value) requireThat(p.artifacts.includes(value), 'presentation artifact not published');
-      if (p.presentation.component) requireThat(this.owned(run, p.presentation.component).artifact.mediaType === 'text/html', 'component must be html');
-      requireThat(Array.isArray(p.search) && p.search.length <= 1000 && p.search.every(entry => entry && typeof entry.text === 'string' && entry.text.length <= 10000 && visible.has(entry.artifact)), 'search artifact must be published for item');
+  async publish(runId: string, publications: Publication[]): Promise<ViewContext[]> {
+    const itemIds = await this.serialize(async () => {
+      const run = this.live(runId); const manifests = clone(publications);
+      requireThat(Array.isArray(manifests) && manifests.length > 0 && manifests.length <= 100, 'one to 100 publications required');
+      const selectedOutputs = new Set<string>();
+      // Validate the complete set before promoting any output or assigning result identities.
+      for (const p of manifests) {
+        requireThat(p && typeof p.title === 'string' && p.title.length <= 300 && typeof p.description === 'string' && p.description.length <= 2000, 'invalid publication metadata');
+        requireThat(Array.isArray(p.artifacts) && p.artifacts.length <= 100 && new Set(p.artifacts).size === p.artifacts.length, 'invalid artifact manifest');
+        for (const artifactId of p.artifacts) {
+          this.owned(run, artifactId);
+          if (run.outputs.has(artifactId)) selectedOutputs.add(artifactId);
+        }
+        const visible = new Set(p.artifacts);
+        requireThat(p.presentation && visible.has(p.presentation.fallback) && this.owned(run, p.presentation.fallback).artifact.mediaType === 'text/plain', 'readable text fallback required');
+        for (const value of [p.presentation.thumbnail, p.presentation.component]) if (value !== undefined) requireThat(visible.has(value), 'presentation artifact not published');
+        if (p.presentation.component !== undefined) requireThat(this.owned(run, p.presentation.component).artifact.mediaType === 'text/html', 'component must be html');
+        requireThat(Array.isArray(p.search) && p.search.length <= 1000 && p.search.every(entry => entry && typeof entry.text === 'string' && entry.text.length <= 10000 && visible.has(entry.artifact)), 'search artifact must be published for item');
+      }
       run.finishing = true; const created: string[] = [];
+      const resultIds = manifests.map(() => id('item'));
       try {
         const next = clone(this.state);
-        for (const artifactId of p.artifacts) {
+        // A selected output may appear in many manifests; it enters durable storage only once.
+        for (const artifactId of selectedOutputs) {
           const { artifact, path } = run.outputs.get(artifactId)!;
           if (await this.promote(path, artifact.sha256)) created.push(artifact.sha256);
           next.artifacts[artifactId] = clone(artifact);
         }
-        next.publications[run.itemId] = { publication: p, processor: { plugin: run.plugin, version: run.version, codeSha256: run.codeSha256 } };
+        for (const [index, publication] of manifests.entries()) {
+          const itemId = resultIds[index];
+          next.items[itemId] = { itemId, artifacts: publication.artifacts.map(artifactId => clone(next.artifacts[artifactId])) };
+          next.publications[itemId] = { publication, processor: { plugin: run.plugin, version: run.version, codeSha256: run.codeSha256 } };
+        }
+        next.processed[run.inputId] = resultIds;
         await this.save(next); this.state = next; this.runs.delete(runId);
       } catch (error) {
         run.finishing = false;
         for (const sha256 of created) await fs.rm(join(this.directory, 'blobs', sha256), { force: true });
         throw error;
       }
-      // Publication is durable now. Housekeeping must not report failure or undo a successful save.
+      // All results are durable now. Housekeeping must not undo or report failure for that save.
       await fs.rm(join(this.directory, '.work', runId), { recursive: true, force: true }).catch(() => {});
-      return run.itemId;
+      return resultIds;
     });
-    return this.context(itemId);
+    return itemIds.map(itemId => this.context(itemId));
   }
   async fail(runId: string, _error: unknown) {
     await this.serialize(async () => {
@@ -246,11 +269,10 @@ export class FileStore {
   }
   visibleArtifact(itemId: string, artifactId: string, range?: ByteRange) {
     const item = this.state.items[itemId]; requireThat(item, 'unknown item');
-    const artifact = this.state.artifacts[artifactId]; requireThat(!artifact || artifact.itemId === itemId, 'foreign artifact');
+    const artifact = this.state.artifacts[artifactId];
+    requireThat(artifact && item.artifacts.some(member => member.id === artifactId), 'artifact is not published for item');
     const stored = this.state.publications[itemId];
-    const visible = item.originals.some(original => original.id === artifactId) || stored?.publication.artifacts.includes(artifactId);
-    requireThat(artifact && visible, 'artifact is not published');
-    requireThat(!stored || this.state.plugins[stored.processor.plugin]?.active || stored.publication.presentation.component !== artifactId, 'component removed');
+    requireThat(this.state.plugins[stored.processor.plugin]?.active || stored.publication.presentation.component !== artifactId, 'component removed');
     return { artifact: clone(artifact), body: this.bytes(artifact, range) };
   }
   /** Called only from the trusted runtime bridge; x-run is injected by its scoped capability. */

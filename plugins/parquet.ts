@@ -12,6 +12,6 @@ export const parquetProcessor: Processor = {
     const rows = await parquetReadObjects({ file, metadata, columns: ['label', 'value'] });
     const lines = rows.map(row => `${row.label}: ${row.value}`); const text = lines.join('\n');
     const fallback = await host.write({ role: 'table-summary', mediaType: 'text/plain' }, new Blob([text]).stream());
-    return { title: 'Parquet public summary', description: `${rows.length} rows; label and value selected. Secret column excluded.`, artifacts: [fallback.id], search: lines.map(text => ({ text, artifact: fallback.id })), presentation: { fallback: fallback.id } };
+    return [{ title: 'Parquet public summary', description: `${rows.length} rows; label and value selected. Secret column excluded.`, artifacts: [fallback.id], search: lines.map(text => ({ text, artifact: fallback.id })), presentation: { fallback: fallback.id } }];
   },
 };

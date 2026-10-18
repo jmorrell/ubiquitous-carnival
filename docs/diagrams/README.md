@@ -2,8 +2,8 @@
 
 | Diagram | Purpose | Editable canvas | Structural source |
 | --- | --- | --- | --- |
-| [Core flow](core-flow.png) | Ingestion APIs → completed Input with originals[] → processor → result | [tldraw](core-flow.tldraw) | [Mermaid](core-flow.mmd) |
-| [Authority boundaries](authority-boundaries.png) | Scoped backend processing and a separate read-only browser component | [tldraw](authority-boundaries.tldraw) | [Mermaid](authority-boundaries.mmd) |
+| [Core flow](core-flow.png) | Completed input batch → processor → one or more manifests → atomic published items | [tldraw](core-flow.tldraw) | [Mermaid](core-flow.mmd) |
+| [Authority boundaries](authority-boundaries.png) | Processing scope covers an input; each viewer sees only its item's explicit artifact set | [tldraw](authority-boundaries.tldraw) | [Mermaid](authority-boundaries.mmd) |
 
 The `.tldraw` files contain editable shapes and bound connections. The `.mmd` files record their structure; the native canvases also contain layout and styling for readability. PNG exports are committed so Markdown readers need no rendering dependency.
 

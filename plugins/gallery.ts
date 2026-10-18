@@ -16,11 +16,11 @@ export const galleryProcessor: Processor = {
     })) };
     const gallery = await host.write({ role: 'gallery-manifest', mediaType: 'application/json' }, new Blob([JSON.stringify(manifest)]).stream());
     const fallback = await host.write({ role: 'gallery-list', mediaType: 'text/plain' }, new Blob([manifest.images.map(image => image.caption).join('\n')]).stream());
-    return {
+    return [{
       title: 'Image gallery', description: `${manifest.images.length} original images in input order.`,
-      artifacts: [gallery.id, fallback.id],
+      artifacts: [gallery.id, fallback.id, ...input.originals.map(original => original.id)],
       search: manifest.images.map(image => ({ text: image.caption, artifact: image.artifact })),
       presentation: { fallback: fallback.id },
-    };
+    }];
   },
 };

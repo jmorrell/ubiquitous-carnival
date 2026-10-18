@@ -10,18 +10,19 @@ The host's fixed text view remains readable without synchronization controls. Th
 
 ## Checks
 
-On 18 October 2026 (UTC), all **3 Playwright tests passed in 3.2 seconds** using cached Chromium **153.0.8010.12**. They exercise:
+On 18 October 2026 (UTC), all **4 Playwright tests passed in 3.3 seconds** using cached Chromium **153.0.8010.12**. They exercise:
 
 1. Actual media seeking, playback, and time display, plus the generic Parquet fallback.
 2. Denied parent DOM access, a real foreign item's artifact read, a hostile sibling frame racing the ready handshake, and unsupported broker methods.
-3. CSP denial of direct fetch and cross-origin frame navigation, with zero requests reaching the test's egress canary.
+3. Two items published from the same image input: sibling-only descriptors are absent, sibling artifact reads fail in both the broker and server, and explicitly shared metadata is readable from both. The fixture uses readable captions; a test-injected protocol probe exercises the actual broker without adding a photo component.
+4. CSP denial of direct fetch and cross-origin frame navigation, with zero requests reaching the test's egress canary.
 
 The tests use the actual iframe, DOM, media element, and Dynamic Worker processing path. Transcription is controlled synthetic data. Each test run starts a fresh temporary store; it does not reuse stale component output.
 
 ## Enforcement and limits
 
 - The host checks the ready message's exact `contentWindow` and opaque `origin === "null"`, then transfers a fresh MessagePort once. This identifies the intended frame; it is not user authentication.
-- The broker accepts only reads and checks the artifact against the item's originals and publication. There is no mutation route in the component protocol or demo API.
+- The broker accepts only reads and checks the artifact against `item.artifacts`, the publication's complete explicit set. The server independently enforces that membership. A viewer receives neither the full input batch nor sibling-only artifact descriptors. There is no mutation route in the component protocol or demo API.
 - `sandbox="allow-scripts"` grants no same-origin, popup, top-navigation, or form permission. Parent/child CSP constrains fetches, frame navigation, workers, objects, and forms. Blob media and inline component scripts/styles are explicitly allowed.
 - Every raw artifact response also carries a CSP sandbox, including active MIME types with parameters. Fetching bytes does not give the artifact host-origin script authority.
 - Blocking a cross-origin navigation replaces the iframe with a browser error document. The host closes the old channel after navigation; the readable fallback survives.

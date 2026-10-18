@@ -7,8 +7,7 @@ let port;
 let ready = false;
 
 function artifactFor(id) {
-  return context.item.originals.find((a) => a.id === id)
-    ?? (context.publication.artifacts.includes(id) ? { id } : undefined);
+  return context.item.artifacts.find((a) => a.id === id);
 }
 function validRange(range) {
   return range === undefined || (range && Number.isSafeInteger(range.start) && Number.isSafeInteger(range.end)

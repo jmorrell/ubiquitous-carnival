@@ -13,6 +13,6 @@ export const createVideoProcessor = (component: string): Processor => ({
     // Transcript structure belongs to this processor and its viewer, not the host contract.
     const source = component.replace('__MAGPIE_TRANSCRIPT_ARTIFACT__', JSON.stringify(transcript.id).replaceAll('<', '\\u003c'));
     const view = await host.write({ role: 'component', mediaType: 'text/html' }, bytes(source));
-    return { title: 'Synthetic video: blue and green', description: 'Controlled transcript fixture; no real transcription provider.', artifacts: [transcript.id, fallback.id, thumbnail.id, view.id], search: segments.map(segment => ({ text: segment.text, artifact: original.id })), presentation: { fallback: fallback.id, thumbnail: thumbnail.id, component: view.id } };
+    return [{ title: 'Synthetic video: blue and green', description: 'Controlled transcript fixture; no real transcription provider.', artifacts: [transcript.id, fallback.id, thumbnail.id, view.id, original.id], search: segments.map(segment => ({ text: segment.text, artifact: original.id })), presentation: { fallback: fallback.id, thumbnail: thumbnail.id, component: view.id } }];
   },
 });

@@ -3,23 +3,23 @@ flowchart TB
     direction LR
     subgraph HOST[Trusted host]
       direction TB
-      A[Archive all originals → Input<br/>Choose one processor for collection]
-      C[Scoped capabilities<br/>read · write · transcribe]
-      V[Validate manifest<br/>Save one publication]
-      S[Host-owned storage<br/>Originals + artifact refs<br/>Selected search text]
+      A[Store batch → Input with inputId<br/>Choose one processor]
+      C[Input / run capabilities<br/>Assigned originals + staged writes]
+      V[Validate all; create items atomically<br/>Host IDs; invalid → no items]
+      S[Host-owned storage<br/>Explicit artifact set per item<br/>Shared references allowed]
       A --> C
       V --> S
     end
     subgraph WORKER[Untrusted Dynamic Worker]
-      P[process input + host<br/>Reads assigned originals array<br/>Writes derived bytes via capabilities<br/>No ambient network]
+      P[Process assigned batch once<br/>Read originals · write derived bytes<br/>Return 1+ publication manifests<br/>No ambient network]
     end
-    C -->|capability calls| P
-    P -->|references + metadata| V
+    C -->|read / write / transcribe| P
+    P -->|1+ manifests| V
   end
   subgraph FRONT[Viewing boundary]
     direction LR
-    U[Trusted host UI<br/>Search + readable fallback<br/>Scoped artifact broker]
-    I[Optional untrusted iframe<br/>Opaque origin + sandbox + CSP]
+    U[Trusted host UI per item<br/>Search + readable fallback<br/>Broker checks item membership]
+    I[Optional iframe per item<br/>Reads its explicit artifact set<br/>Opaque origin + sandbox + CSP]
     U <-->|MessagePort: artifact reads only| I
   end
   S --> U
