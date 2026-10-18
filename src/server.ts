@@ -10,12 +10,12 @@ import { parquetRegistration } from '../plugins/parquet';
 import { photoItemsRegistration } from '../plugins/photo-items';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const store = await FileStore.open(process.env.DEMO_STORE ?? root + '.demo-store-publications');
+const store = await FileStore.open(process.env.DEMO_STORE ?? root + '.demo-store-origins');
 await store.install(videoRegistration); await store.install(parquetRegistration); await store.install(photoItemsRegistration);
 const runner = await createRunner(store);
 async function demoItem(filename: string, mediaType: string, plugin: 'video-viewer' | 'parquet-summary') {
   const input = store.inputs().find(input => input.originals.length === 1 && input.originals[0].mediaType === mediaType)
-    ?? await store.intake([{ filename, mediaType, body: Readable.toWeb(createReadStream(root + 'fixtures/' + filename)) as ReadableStream<Uint8Array> }]);
+    ?? await store.intake([{ origin: { kind: 'file', relativePath: filename }, mediaType, body: Readable.toWeb(createReadStream(root + 'fixtures/' + filename)) as ReadableStream<Uint8Array> }]);
   const results = store.isProcessed(input.inputId) ? store.results(input.inputId) : await runner.process(input.inputId, plugin);
   return results[0].item.itemId;
 }
@@ -23,7 +23,7 @@ const videoId = await demoItem('video.webm', 'video/webm', 'video-viewer');
 const parquetId = await demoItem('tiny.parquet', 'application/vnd.apache.parquet', 'parquet-summary');
 const photos = store.inputs().find(input => input.originals.length === 2 && input.originals.every(original => original.mediaType === 'image/svg+xml'))
   ?? await store.intake(['blue.svg', 'day-2/green.svg'].map(relativePath => ({
-    filename: relativePath.split('/').at(-1)!, relativePath: 'photos/' + relativePath, mediaType: 'image/svg+xml',
+    origin: { kind: 'file' as const, relativePath: 'photos/' + relativePath }, mediaType: 'image/svg+xml',
     body: Readable.toWeb(createReadStream(root + 'fixtures/gallery/' + relativePath)) as ReadableStream<Uint8Array>,
   })));
 const photoItems = store.isProcessed(photos.inputId) ? store.results(photos.inputId) : await runner.process(photos.inputId, 'photo-items');

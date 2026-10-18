@@ -3,16 +3,16 @@ import { createReadStream } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
-import type { Artifact, ByteRange, Input, Item, OriginalArtifact, ProcessingHost, ProcessorRegistration, Publication, TranscriptSegment, ViewContext } from './contract';
+import type { Artifact, ArtifactOrigin, ByteRange, Input, Item, ProcessingHost, ProcessorRegistration, Publication, TranscriptSegment, ViewContext } from './contract';
 
 type Installed = { registration: ProcessorRegistration; epoch: string; active: boolean };
 type ProcessorInfo = { plugin: string; version: string; codeSha256?: string };
 type StoredPublication = { publication: Publication; processor: ProcessorInfo };
-type State = { schemaVersion: 4; inputs: Record<string, Input>; items: Record<string, Item>; artifacts: Record<string, Artifact>; publications: Record<string, StoredPublication>; processed: Record<string, string[]>; plugins: Record<string, Installed> };
+type State = { schemaVersion: 5; inputs: Record<string, Input>; items: Record<string, Item>; artifacts: Record<string, Artifact>; publications: Record<string, StoredPublication>; processed: Record<string, string[]>; plugins: Record<string, Installed> };
 type PendingArtifact = { artifact: Artifact; path: string };
 /** Execution authority and incomplete output are transient, never saved as a draft. */
 type Run = ProcessorInfo & { id: string; inputId: string; epoch: string; outputs: Map<string, PendingArtifact>; finishing: boolean };
-const blank = (): State => ({ schemaVersion: 4, inputs: {}, items: {}, artifacts: {}, publications: {}, processed: {}, plugins: {} });
+const blank = (): State => ({ schemaVersion: 5, inputs: {}, items: {}, artifacts: {}, publications: {}, processed: {}, plugins: {} });
 const clone = <T>(value: T): T => structuredClone(value);
 const id = (prefix: string) => `${prefix}_${randomUUID()}`;
 function requireThat(test: unknown, message: string): asserts test { if (!test) throw new Error(message); }
@@ -24,9 +24,7 @@ export type Transcriber = (original: Artifact) => Promise<TranscriptSegment[]>;
 export interface OriginalUpload {
   mediaType: string;
   body: ReadableStream<Uint8Array>;
-  filename?: string;
-  relativePath?: string;
-  sourceUrl?: string;
+  origin: ArtifactOrigin;
 }
 /** Explicitly synthetic and deterministic. No audio recognition or provider call is claimed. */
 export const syntheticTranscriber: Transcriber = async () => [
@@ -44,7 +42,7 @@ export class FileStore {
     let state: State;
     try {
       state = JSON.parse(await fs.readFile(join(directory, 'metadata.json'), 'utf8'));
-      requireThat(state.schemaVersion === 4, 'incompatible store format; use a fresh directory (for example .demo-store-publications)');
+      requireThat(state.schemaVersion === 5, 'incompatible store format; use a fresh directory (for example .demo-store-origins)');
     } catch (error: any) { if (error.code !== 'ENOENT') throw error; state = blank(); }
     await fs.mkdir(join(directory, 'blobs'), { recursive: true });
     await fs.mkdir(join(directory, '.work'), { recursive: true });
@@ -94,17 +92,31 @@ export class FileStore {
   }
   async intake(originals: readonly OriginalUpload[]): Promise<Input> {
     const unread = new Set(Array.isArray(originals) ? originals.map(original => original?.body) : []);
-    const staged: { path: string; artifact: OriginalArtifact }[] = []; let committed = false;
+    const staged: { path: string; artifact: Artifact }[] = []; let committed = false;
     try {
       requireThat(Array.isArray(originals) && originals.length > 0, 'at least one original is required');
       const uploads = originals.map(original => {
         requireThat(original && typeof original.mediaType === 'string' && original.mediaType.length < 150 && /^[\w!#$&^.+-]+\/[\w!#$&^.+-]+(?:;[^\r\n]*)?$/.test(original.mediaType), 'invalid original media type');
-        const { mediaType, body, filename, relativePath, sourceUrl } = original;
+        const { mediaType, body } = original;
         requireThat(body && typeof body.getReader === 'function', 'original byte stream required');
-        if (filename !== undefined) requireThat(typeof filename === 'string' && filename.length > 0 && filename.length <= 255 && !/[\/\\\u0000-\u001f\u007f]/.test(filename) && filename !== '.' && filename !== '..', 'invalid original filename');
-        if (relativePath !== undefined) requireThat(typeof relativePath === 'string' && relativePath.length > 0 && relativePath.length <= 4096 && !/[\\\u0000-\u001f\u007f]/.test(relativePath) && !/^[A-Za-z]:/.test(relativePath) && relativePath.split('/').every(part => part !== '' && part !== '.' && part !== '..'), 'invalid original relative path');
-        if (sourceUrl !== undefined) requireThat(typeof sourceUrl === 'string' && sourceUrl.length > 0 && sourceUrl.length <= 8192 && !/[\u0000-\u001f\u007f]/.test(sourceUrl), 'invalid original source URL');
-        return { mediaType, body, ...(filename === undefined ? {} : { filename }), ...(relativePath === undefined ? {} : { relativePath }), ...(sourceUrl === undefined ? {} : { sourceUrl }) };
+        requireThat(original.origin && typeof original.origin === 'object' && !Array.isArray(original.origin), 'invalid original origin');
+        let origin: ArtifactOrigin;
+        switch (original.origin.kind) {
+          case 'none': origin = { kind: 'none' }; break;
+          case 'file': {
+            const { relativePath } = original.origin;
+            requireThat(typeof relativePath === 'string' && relativePath.length > 0 && relativePath.length <= 4096 && !/[\\\u0000-\u001f\u007f]/.test(relativePath) && !/^[A-Za-z]:/.test(relativePath) && relativePath.split('/').every(part => part !== '' && part !== '.' && part !== '..'), 'invalid original relative path');
+            origin = { kind: 'file', relativePath }; break;
+          }
+          case 'url': {
+            const { url } = original.origin;
+            requireThat(typeof url === 'string' && url.length > 0 && url.length <= 8192 && !/[\u0000-\u001f\u007f]/.test(url), 'invalid original source URL');
+            origin = { kind: 'url', url }; break;
+          }
+          default: throw new Error('invalid original origin');
+        }
+        // Canonical copies prevent caller mutation while streams are being read.
+        return { mediaType, body, origin };
       });
       const inputId = id('input'); const input: Input = { inputId, originals: [] };
       // Keep partial uploads outside the input index; all streams must finish before committing.
@@ -194,7 +206,7 @@ export class FileStore {
           // Recheck after the asynchronous stream; no authority survives removal or completion.
           const run = this.live(runId); const size = [...run.outputs.values()].reduce((n, value) => n + value.artifact.size, 0);
           requireThat(run.outputs.size < 100, 'artifact count quota exceeded'); requireThat(size + stored.size <= MAX_RUN, 'processing output quota exceeded');
-          const artifact: Artifact = { id: id('artifact'), role: meta.role, mediaType: meta.mediaType, ...stored };
+          const artifact: Artifact = { id: id('artifact'), role: meta.role, mediaType: meta.mediaType, origin: { kind: 'none' }, ...stored };
           run.outputs.set(artifact.id, { artifact, path }); return clone(artifact);
         } catch (error) { await fs.rm(path, { force: true }); throw error; }
       },

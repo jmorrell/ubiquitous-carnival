@@ -1,26 +1,30 @@
 {
-  "observedAt": "2026-10-18T02:55:15.369Z",
+  "observedAt": "2026-10-18T03:07:50.780Z",
   "backend": "Miniflare 5 / workerd Dynamic Workers",
   "flow": "completed Input → process once → one or more manifests → atomic published items → scoped views",
   "gallery": {
     "input": {
-      "inputId": "input_96137cf1-2b3e-4df1-843f-0647708f4753",
+      "inputId": "input_1d055fb7-1e7c-401c-9429-079c3451cfac",
       "originals": [
         {
-          "id": "artifact_a6f05f30-fe30-4f69-9fef-5dd307a81dc4",
+          "id": "artifact_493b496c-73e7-4227-84c2-85fbbd96c161",
           "role": "original",
           "mediaType": "image/svg+xml",
-          "filename": "blue.svg",
-          "relativePath": "photos/blue.svg",
+          "origin": {
+            "kind": "file",
+            "relativePath": "photos/blue.svg"
+          },
           "sha256": "a8ea801d6a338b9f75c09838aead926ee9f5ed2a0b12ad43747fa88cf2d11a35",
           "size": 115
         },
         {
-          "id": "artifact_ceb80105-8d38-4ca7-8128-3ec203e2c509",
+          "id": "artifact_de147283-11cc-4d7b-b75d-eeb593ae4b05",
           "role": "original",
           "mediaType": "image/svg+xml",
-          "filename": "green.svg",
-          "relativePath": "photos/day-2/green.svg",
+          "origin": {
+            "kind": "url",
+            "url": "https://example.com/photos/day-2/green.svg"
+          },
           "sha256": "8564b16629506ca8625ce5170a8682cb4eed17747c5e3cae3b4435f249140022",
           "size": 115
         }
@@ -29,37 +33,47 @@
     "results": [
       {
         "item": {
-          "itemId": "item_5a5336bb-357b-4e3e-a557-e8180b366fdd",
+          "itemId": "item_3c976316-941a-4d69-bad7-77cf353b2e48",
           "artifacts": [
             {
-              "id": "artifact_a2e84749-4f54-41f3-91ab-178f23979b43",
+              "id": "artifact_9dd5044c-861c-42ca-a687-9adbc37a9677",
               "role": "gallery-manifest",
               "mediaType": "application/json",
-              "sha256": "9572ccbe9adb6934acd82632866b028670b93655575e4537b355ba0ca9922d1b",
-              "size": 315
+              "origin": {
+                "kind": "none"
+              },
+              "sha256": "072691b1e4c7ab8fb41c49a1f0552c17e3b2ecb9dfa909b66667a63a35eec3ff",
+              "size": 217
             },
             {
-              "id": "artifact_03902a6f-ee19-4a9c-8a9b-035fc4a672a8",
+              "id": "artifact_52eee70c-c7df-41ab-bb3c-bcdbce500b6f",
               "role": "gallery-list",
               "mediaType": "text/plain",
-              "sha256": "987c2f61510e35c4da70ef9466703b1edf577429fc57bc32b01e94c2639c0b3e",
-              "size": 38
+              "origin": {
+                "kind": "none"
+              },
+              "sha256": "50718800cc1905d078b1a773c09e2a1f86a051f89d0b8bc3470eccdf1676a6cb",
+              "size": 58
             },
             {
-              "id": "artifact_a6f05f30-fe30-4f69-9fef-5dd307a81dc4",
+              "id": "artifact_493b496c-73e7-4227-84c2-85fbbd96c161",
               "role": "original",
               "mediaType": "image/svg+xml",
-              "filename": "blue.svg",
-              "relativePath": "photos/blue.svg",
+              "origin": {
+                "kind": "file",
+                "relativePath": "photos/blue.svg"
+              },
               "sha256": "a8ea801d6a338b9f75c09838aead926ee9f5ed2a0b12ad43747fa88cf2d11a35",
               "size": 115
             },
             {
-              "id": "artifact_ceb80105-8d38-4ca7-8128-3ec203e2c509",
+              "id": "artifact_de147283-11cc-4d7b-b75d-eeb593ae4b05",
               "role": "original",
               "mediaType": "image/svg+xml",
-              "filename": "green.svg",
-              "relativePath": "photos/day-2/green.svg",
+              "origin": {
+                "kind": "url",
+                "url": "https://example.com/photos/day-2/green.svg"
+              },
               "sha256": "8564b16629506ca8625ce5170a8682cb4eed17747c5e3cae3b4435f249140022",
               "size": 115
             }
@@ -69,23 +83,23 @@
           "title": "Image gallery",
           "description": "2 original images in input order.",
           "artifacts": [
-            "artifact_a2e84749-4f54-41f3-91ab-178f23979b43",
-            "artifact_03902a6f-ee19-4a9c-8a9b-035fc4a672a8",
-            "artifact_a6f05f30-fe30-4f69-9fef-5dd307a81dc4",
-            "artifact_ceb80105-8d38-4ca7-8128-3ec203e2c509"
+            "artifact_9dd5044c-861c-42ca-a687-9adbc37a9677",
+            "artifact_52eee70c-c7df-41ab-bb3c-bcdbce500b6f",
+            "artifact_493b496c-73e7-4227-84c2-85fbbd96c161",
+            "artifact_de147283-11cc-4d7b-b75d-eeb593ae4b05"
           ],
           "search": [
             {
               "text": "photos/blue.svg",
-              "artifact": "artifact_a6f05f30-fe30-4f69-9fef-5dd307a81dc4"
+              "artifact": "artifact_493b496c-73e7-4227-84c2-85fbbd96c161"
             },
             {
-              "text": "photos/day-2/green.svg",
-              "artifact": "artifact_ceb80105-8d38-4ca7-8128-3ec203e2c509"
+              "text": "https://example.com/photos/day-2/green.svg",
+              "artifact": "artifact_de147283-11cc-4d7b-b75d-eeb593ae4b05"
             }
           ],
           "presentation": {
-            "fallback": "artifact_03902a6f-ee19-4a9c-8a9b-035fc4a672a8"
+            "fallback": "artifact_52eee70c-c7df-41ab-bb3c-bcdbce500b6f"
           }
         }
       }
@@ -93,44 +107,44 @@
     "manifest": {
       "images": [
         {
-          "artifact": "artifact_a6f05f30-fe30-4f69-9fef-5dd307a81dc4",
-          "filename": "blue.svg",
-          "relativePath": "photos/blue.svg",
+          "artifact": "artifact_493b496c-73e7-4227-84c2-85fbbd96c161",
           "caption": "photos/blue.svg"
         },
         {
-          "artifact": "artifact_ceb80105-8d38-4ca7-8128-3ec203e2c509",
-          "filename": "green.svg",
-          "relativePath": "photos/day-2/green.svg",
-          "caption": "photos/day-2/green.svg"
+          "artifact": "artifact_de147283-11cc-4d7b-b75d-eeb593ae4b05",
+          "caption": "https://example.com/photos/day-2/green.svg"
         }
       ]
     },
     "processor": {
       "plugin": "image-gallery",
       "version": "0.1.0",
-      "codeSha256": "942d86902b9e09f56f97f54ab0066d5225f7cb492b17c37584dd0887f605a2a1"
+      "codeSha256": "4a926f54607514069c6d2a1300a88b9bd176472603ee58cd6a26015cf85623ae"
     }
   },
   "photos": {
     "input": {
-      "inputId": "input_cb12a010-3457-4617-8af2-1c8e4cfdf4cc",
+      "inputId": "input_fb048a25-12a9-49c2-9918-5ca14596e03e",
       "originals": [
         {
-          "id": "artifact_d34e298b-fe49-4f2f-a734-d8a621b962fe",
+          "id": "artifact_1d554e69-123d-4123-b839-c0a7e53db86d",
           "role": "original",
           "mediaType": "image/svg+xml",
-          "filename": "blue.svg",
-          "relativePath": "photos/blue.svg",
+          "origin": {
+            "kind": "file",
+            "relativePath": "photos/blue.svg"
+          },
           "sha256": "a8ea801d6a338b9f75c09838aead926ee9f5ed2a0b12ad43747fa88cf2d11a35",
           "size": 115
         },
         {
-          "id": "artifact_6a0f6e50-3b7d-4eb3-96a3-5336731acdec",
+          "id": "artifact_265e80df-23db-41bf-a4ea-9d85841a972d",
           "role": "original",
           "mediaType": "image/svg+xml",
-          "filename": "green.svg",
-          "relativePath": "photos/day-2/green.svg",
+          "origin": {
+            "kind": "url",
+            "url": "https://example.com/photos/day-2/green.svg"
+          },
           "sha256": "8564b16629506ca8625ce5170a8682cb4eed17747c5e3cae3b4435f249140022",
           "size": 115
         }
@@ -139,28 +153,36 @@
     "results": [
       {
         "item": {
-          "itemId": "item_8f8a4c22-f6bc-4d3b-b41c-dc8bccfcac59",
+          "itemId": "item_cbb224b2-62e1-4c35-bf7d-42fa926af64b",
           "artifacts": [
             {
-              "id": "artifact_d34e298b-fe49-4f2f-a734-d8a621b962fe",
+              "id": "artifact_1d554e69-123d-4123-b839-c0a7e53db86d",
               "role": "original",
               "mediaType": "image/svg+xml",
-              "filename": "blue.svg",
-              "relativePath": "photos/blue.svg",
+              "origin": {
+                "kind": "file",
+                "relativePath": "photos/blue.svg"
+              },
               "sha256": "a8ea801d6a338b9f75c09838aead926ee9f5ed2a0b12ad43747fa88cf2d11a35",
               "size": 115
             },
             {
-              "id": "artifact_6a9eab56-fc8f-48c0-a9e2-458536a29b77",
+              "id": "artifact_9961eec4-4c86-41cb-af3c-ee62b04a42c1",
               "role": "photo-caption",
               "mediaType": "text/plain",
+              "origin": {
+                "kind": "none"
+              },
               "sha256": "bb500013a354e4095fc6222f7351f194101c944f8b877cace0e1dee4df1c0445",
               "size": 15
             },
             {
-              "id": "artifact_21cddc84-1fce-412b-975f-ddb27c78cb7d",
+              "id": "artifact_40cb4331-8200-4c29-954b-7d615c8d0d41",
               "role": "photo-index",
               "mediaType": "application/json",
+              "origin": {
+                "kind": "none"
+              },
               "sha256": "4ab70510206d13d26e77f86cfdb39ed2bbbd46a6578e16d790ef6138cf6f15a4",
               "size": 37
             }
@@ -170,116 +192,139 @@
           "title": "photos/blue.svg",
           "description": "One image from the submitted batch.",
           "artifacts": [
-            "artifact_d34e298b-fe49-4f2f-a734-d8a621b962fe",
-            "artifact_6a9eab56-fc8f-48c0-a9e2-458536a29b77",
-            "artifact_21cddc84-1fce-412b-975f-ddb27c78cb7d"
+            "artifact_1d554e69-123d-4123-b839-c0a7e53db86d",
+            "artifact_9961eec4-4c86-41cb-af3c-ee62b04a42c1",
+            "artifact_40cb4331-8200-4c29-954b-7d615c8d0d41"
           ],
           "search": [
             {
               "text": "photos/blue.svg",
-              "artifact": "artifact_d34e298b-fe49-4f2f-a734-d8a621b962fe"
+              "artifact": "artifact_1d554e69-123d-4123-b839-c0a7e53db86d"
             }
           ],
           "presentation": {
-            "fallback": "artifact_6a9eab56-fc8f-48c0-a9e2-458536a29b77"
+            "fallback": "artifact_9961eec4-4c86-41cb-af3c-ee62b04a42c1"
           }
         }
       },
       {
         "item": {
-          "itemId": "item_65ca5174-e768-401a-96b9-08c6456572af",
+          "itemId": "item_2b5a9222-56a5-48b2-ab66-533630652749",
           "artifacts": [
             {
-              "id": "artifact_6a0f6e50-3b7d-4eb3-96a3-5336731acdec",
+              "id": "artifact_265e80df-23db-41bf-a4ea-9d85841a972d",
               "role": "original",
               "mediaType": "image/svg+xml",
-              "filename": "green.svg",
-              "relativePath": "photos/day-2/green.svg",
+              "origin": {
+                "kind": "url",
+                "url": "https://example.com/photos/day-2/green.svg"
+              },
               "sha256": "8564b16629506ca8625ce5170a8682cb4eed17747c5e3cae3b4435f249140022",
               "size": 115
             },
             {
-              "id": "artifact_d428ff73-242c-423a-91e7-c7fdc5b93286",
+              "id": "artifact_3cb1f967-0bc9-4ae5-b461-cdf48f917038",
               "role": "photo-caption",
               "mediaType": "text/plain",
-              "sha256": "34928483a4d99f003dc563f77f820713b8034f3f027cbd22e89c3493726a5d08",
-              "size": 22
+              "origin": {
+                "kind": "none"
+              },
+              "sha256": "2b8b7cfdb1c4fa5d7d252cd9fbd40e7553fe7c0ceeac94f0cf5a5b85bc2d0585",
+              "size": 42
             },
             {
-              "id": "artifact_21cddc84-1fce-412b-975f-ddb27c78cb7d",
+              "id": "artifact_40cb4331-8200-4c29-954b-7d615c8d0d41",
               "role": "photo-index",
               "mediaType": "application/json",
+              "origin": {
+                "kind": "none"
+              },
               "sha256": "4ab70510206d13d26e77f86cfdb39ed2bbbd46a6578e16d790ef6138cf6f15a4",
               "size": 37
             }
           ]
         },
         "publication": {
-          "title": "photos/day-2/green.svg",
+          "title": "https://example.com/photos/day-2/green.svg",
           "description": "One image from the submitted batch.",
           "artifacts": [
-            "artifact_6a0f6e50-3b7d-4eb3-96a3-5336731acdec",
-            "artifact_d428ff73-242c-423a-91e7-c7fdc5b93286",
-            "artifact_21cddc84-1fce-412b-975f-ddb27c78cb7d"
+            "artifact_265e80df-23db-41bf-a4ea-9d85841a972d",
+            "artifact_3cb1f967-0bc9-4ae5-b461-cdf48f917038",
+            "artifact_40cb4331-8200-4c29-954b-7d615c8d0d41"
           ],
           "search": [
             {
-              "text": "photos/day-2/green.svg",
-              "artifact": "artifact_6a0f6e50-3b7d-4eb3-96a3-5336731acdec"
+              "text": "https://example.com/photos/day-2/green.svg",
+              "artifact": "artifact_265e80df-23db-41bf-a4ea-9d85841a972d"
             }
           ],
           "presentation": {
-            "fallback": "artifact_d428ff73-242c-423a-91e7-c7fdc5b93286"
+            "fallback": "artifact_3cb1f967-0bc9-4ae5-b461-cdf48f917038"
           }
         }
       }
     ],
-    "sharedArtifact": "artifact_21cddc84-1fce-412b-975f-ddb27c78cb7d",
+    "sharedArtifact": "artifact_40cb4331-8200-4c29-954b-7d615c8d0d41",
     "siblingArtifactReadDenied": true,
     "processor": {
       "plugin": "photo-items",
       "version": "0.1.0",
-      "codeSha256": "974a1f0286bc350332e4acdb9cc13469224a5572cf5875b138416b53c13b3410"
+      "codeSha256": "9868e5724aa98a518963097995d66077316dae6e917dc3af7451577451d17696"
     }
   },
   "video": {
     "result": {
       "item": {
-        "itemId": "item_0deda717-e4e1-4ae8-99b8-21d338d859f7",
+        "itemId": "item_b6ac9fa8-7772-4973-87bc-e359590e0cf6",
         "artifacts": [
           {
-            "id": "artifact_e66511a9-dca6-441d-8e0f-d7bdc5121618",
+            "id": "artifact_9fc53a44-abed-4970-8295-440984d5df2a",
             "role": "transcript",
             "mediaType": "application/json",
+            "origin": {
+              "kind": "none"
+            },
             "sha256": "98632d52ae383ed4baa05713270d42aae576cede8d24e2653214478a34574f65",
             "size": 135
           },
           {
-            "id": "artifact_7a80ab0e-f4c8-4493-aaa5-83b6651fb4ca",
+            "id": "artifact_23f5e6c2-aa35-43c1-ae0a-8495e264a3d8",
             "role": "transcript-text",
             "mediaType": "text/plain",
+            "origin": {
+              "kind": "none"
+            },
             "sha256": "5234fc8f258f7603a77e0b92f9e2806ff89390c56e42b4391a0b4567487aeec5",
             "size": 46
           },
           {
-            "id": "artifact_e0af3edb-9dd7-47f5-be88-700633258e4a",
+            "id": "artifact_436ca968-6c13-4ccf-964b-c1c8eb20e315",
             "role": "thumbnail",
             "mediaType": "image/svg+xml",
+            "origin": {
+              "kind": "none"
+            },
             "sha256": "7e5c4fbac3a3e5492cbb76287b13e34992ac358ae8240ee9ada0dc4d625aee25",
             "size": 257
           },
           {
-            "id": "artifact_e3a0b63b-38f8-4670-92d4-0d7207fcec37",
+            "id": "artifact_6f05c48c-a1e5-4771-8617-0db54c098e51",
             "role": "component",
             "mediaType": "text/html",
-            "sha256": "ced01d92c4234d408b45d8cf3c98004b8f6fe174f582e34e0ad9511f113961f4",
+            "origin": {
+              "kind": "none"
+            },
+            "sha256": "7b84c901dee1ca99e54aa9f92dcbb900a460a1d8d116598e3ebe7ed12e50703e",
             "size": 3493
           },
           {
-            "id": "artifact_6ba8a307-2186-4e40-bf84-7289730a397a",
+            "id": "artifact_a9bf8852-18be-4345-a6a5-9a3d47a41566",
             "role": "original",
             "mediaType": "video/webm",
-            "filename": "video.webm",
+            "origin": {
+              "kind": "file",
+              "relativePath": "video.webm"
+            },
             "sha256": "232ff8852238c43e4314ecff2e7424a22e65eaec100697082b9175e61fdc7288",
             "size": 7842
           }
@@ -289,26 +334,26 @@
         "title": "Synthetic video: blue and green",
         "description": "Controlled transcript fixture; no real transcription provider.",
         "artifacts": [
-          "artifact_e66511a9-dca6-441d-8e0f-d7bdc5121618",
-          "artifact_7a80ab0e-f4c8-4493-aaa5-83b6651fb4ca",
-          "artifact_e0af3edb-9dd7-47f5-be88-700633258e4a",
-          "artifact_e3a0b63b-38f8-4670-92d4-0d7207fcec37",
-          "artifact_6ba8a307-2186-4e40-bf84-7289730a397a"
+          "artifact_9fc53a44-abed-4970-8295-440984d5df2a",
+          "artifact_23f5e6c2-aa35-43c1-ae0a-8495e264a3d8",
+          "artifact_436ca968-6c13-4ccf-964b-c1c8eb20e315",
+          "artifact_6f05c48c-a1e5-4771-8617-0db54c098e51",
+          "artifact_a9bf8852-18be-4345-a6a5-9a3d47a41566"
         ],
         "search": [
           {
             "text": "A blue square appears.",
-            "artifact": "artifact_6ba8a307-2186-4e40-bf84-7289730a397a"
+            "artifact": "artifact_a9bf8852-18be-4345-a6a5-9a3d47a41566"
           },
           {
             "text": "A green square appears.",
-            "artifact": "artifact_6ba8a307-2186-4e40-bf84-7289730a397a"
+            "artifact": "artifact_a9bf8852-18be-4345-a6a5-9a3d47a41566"
           }
         ],
         "presentation": {
-          "fallback": "artifact_7a80ab0e-f4c8-4493-aaa5-83b6651fb4ca",
-          "thumbnail": "artifact_e0af3edb-9dd7-47f5-be88-700633258e4a",
-          "component": "artifact_e3a0b63b-38f8-4670-92d4-0d7207fcec37"
+          "fallback": "artifact_23f5e6c2-aa35-43c1-ae0a-8495e264a3d8",
+          "thumbnail": "artifact_436ca968-6c13-4ccf-964b-c1c8eb20e315",
+          "component": "artifact_6f05c48c-a1e5-4771-8617-0db54c098e51"
         }
       }
     },
@@ -321,12 +366,15 @@
   "parquet": {
     "result": {
       "item": {
-        "itemId": "item_88b919ee-783e-4a21-b5b9-3208b13fd949",
+        "itemId": "item_0762e3ec-4730-4dda-9e39-d1484c895264",
         "artifacts": [
           {
-            "id": "artifact_d333fd87-0059-4d78-a142-99eb95d4abcc",
+            "id": "artifact_f4ad1777-c079-4d8b-8e8f-54a014ab11bf",
             "role": "table-summary",
             "mediaType": "text/plain",
+            "origin": {
+              "kind": "none"
+            },
             "sha256": "7a4b4eb4a48c325cb35b1fc0433a7e76617a673c6f752d2aa454394f8f854466",
             "size": 21
           }
@@ -336,20 +384,20 @@
         "title": "Parquet public summary",
         "description": "2 rows; label and value selected. Secret column excluded.",
         "artifacts": [
-          "artifact_d333fd87-0059-4d78-a142-99eb95d4abcc"
+          "artifact_f4ad1777-c079-4d8b-8e8f-54a014ab11bf"
         ],
         "search": [
           {
             "text": "Harbor: 12",
-            "artifact": "artifact_d333fd87-0059-4d78-a142-99eb95d4abcc"
+            "artifact": "artifact_f4ad1777-c079-4d8b-8e8f-54a014ab11bf"
           },
           {
             "text": "Forest: 34",
-            "artifact": "artifact_d333fd87-0059-4d78-a142-99eb95d4abcc"
+            "artifact": "artifact_f4ad1777-c079-4d8b-8e8f-54a014ab11bf"
           }
         ],
         "presentation": {
-          "fallback": "artifact_d333fd87-0059-4d78-a142-99eb95d4abcc"
+          "fallback": "artifact_f4ad1777-c079-4d8b-8e8f-54a014ab11bf"
         }
       }
     },

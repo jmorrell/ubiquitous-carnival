@@ -2,7 +2,7 @@ flowchart TB
   subgraph HOST[Trusted host]
     direction TB
     A[Ingestion APIs<br/>URL capture · file or folder<br/>Async large-file upload<br/>Transport not specified] --> B[Store all originals<br/>Wait for completion<br/>Choose one processor]
-    B --> I[Input: inputId + originals array<br/>Each original: stored details<br/>+ optional filename / path / provenance]
+    B --> I[Input: inputId + originals array<br/>Each artifact: stored details<br/>+ origin: none / URL / file path]
   end
   subgraph PLUGIN[Untrusted processor]
     direction LR

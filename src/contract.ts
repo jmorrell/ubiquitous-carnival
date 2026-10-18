@@ -2,17 +2,21 @@
 export type ArtifactId = string;
 export type InputId = string;
 export type ItemId = string;
+/** Recorded provenance. File paths are labels, never paths into the host filesystem. */
+export type ArtifactOrigin =
+  | { kind: "none" }
+  | { kind: "url"; url: string }
+  | { kind: "file"; relativePath: string };
 export interface Artifact {
   id: ArtifactId;
   role: string;
   mediaType: string;
   size: number;
   sha256: string;
+  origin: ArtifactOrigin;
 }
-/** Per-file provenance labels, never paths into the host filesystem. */
-export interface OriginalArtifact extends Artifact { filename?: string; relativePath?: string; sourceUrl?: string }
 /** Ingestion has completed: every original already has stored bytes and host-issued identity. */
-export interface Input { inputId: InputId; originals: readonly OriginalArtifact[] }
+export interface Input { inputId: InputId; originals: readonly Artifact[] }
 /** A published item exposes only the artifacts explicitly selected by its publication. */
 export interface Item { itemId: ItemId; artifacts: readonly Artifact[] }
 /** End is exclusive. */

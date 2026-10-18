@@ -1,4 +1,5 @@
 import type { Processor, ProcessorRegistration, Publication } from '../src/contract';
+import { imageCaption } from './image-caption';
 
 export const photoItemsRegistration: ProcessorRegistration = { id: 'photo-items', version: '0.1.0', accepts: ['image/*'], grants: [] };
 /** The same image batch can produce separate items instead of one gallery. */
@@ -9,7 +10,7 @@ export const photoItemsProcessor: Processor = {
     const index = await host.write({ role: 'photo-index', mediaType: 'application/json' }, new Blob([JSON.stringify({ title: 'Imported images', count: input.originals.length })]).stream());
     const publications: Publication[] = [];
     for (const [position, original] of input.originals.entries()) {
-      const caption = original.relativePath ?? original.filename ?? `Image ${position + 1}`;
+      const caption = imageCaption(original, position);
       const fallback = await host.write({ role: 'photo-caption', mediaType: 'text/plain' }, new Blob([caption]).stream());
       publications.push({
         title: caption, description: 'One image from the submitted batch.',

@@ -18,18 +18,18 @@ An input can complete processing once, producing one or more items. Each item ha
 
 `Input` is the host-prepared value passed to a processor, after ingestion completes. URL fetching, browser capture, direct uploads, and asynchronous large-file uploads can have different user-facing APIs and converge here. Their HTTP/upload protocols are not part of the extension contract.
 
-There is no `Source` union. How bytes arrived does not change the processing contract. Each original can carry `filename`, `relativePath`, and `sourceUrl` provenance, so multiple sources can coexist in one input. These are labels: intake neither follows URLs nor reads paths from them. Submission identity, if needed later, can be host metadata.
+Every artifact has a required `origin`: `none`, `url`, or `file`. A URL origin carries `url`; a file origin carries `relativePath`, including the filename. For a loose file that is simply `"photo.jpg"`; for a folder import it might be `"holiday/photo.jpg"`. There are no separate filename fields or `OriginalArtifact` type. `none` means no recorded origin, and the host assigns it to generated artifacts. These are provenance labels: intake neither follows URLs nor reads paths from them. Submission identity, if needed later, can be host metadata.
 
 The host-internal helper now accepts a nonempty batch of streams:
 
 ```ts
 const input = await store.intake([
   {
-    filename: "blue.svg", relativePath: "photos/blue.svg",
+    origin: { kind: "file", relativePath: "photos/blue.svg" },
     mediaType: "image/svg+xml", body: blueStream,
   },
   {
-    filename: "green.svg", relativePath: "photos/day-2/green.svg",
+    origin: { kind: "file", relativePath: "photos/day-2/green.svg" },
     mediaType: "image/svg+xml", body: greenStream,
   },
 ]);
@@ -42,7 +42,12 @@ The host computes IDs, sizes, and hashes. A failed ingestion exposes no partial 
 The core distinction is small:
 
 ```ts
-type Input = { inputId: InputId; originals: readonly OriginalArtifact[] };
+type ArtifactOrigin =
+  | { kind: "none" }
+  | { kind: "url"; url: string }
+  | { kind: "file"; relativePath: string };
+// Artifact.origin is required; callers can switch exhaustively on origin.kind.
+type Input = { inputId: InputId; originals: readonly Artifact[] };
 type Item = { itemId: ItemId; artifacts: readonly Artifact[] };
 // Processor.process(input, host): Promise<Publication[]>
 ```
@@ -94,9 +99,9 @@ npm run test:browser
 npm run demo
 ```
 
-The demo serves video at `http://127.0.0.1:4173/`, Parquet at `/?item=parquet`, and two photo captions at `/?item=photo-1` and `/?item=photo-2`. It uses `.demo-store-publications` (schema version 4), separate from earlier stores. Old store formats are rejected; this prototype includes no migration. Browser/runtime checks need local listeners and Chromium. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` if needed; otherwise the browser config uses an available macOS Playwright cache.
+The demo serves video at `http://127.0.0.1:4173/`, Parquet at `/?item=parquet`, and two photo captions at `/?item=photo-1` and `/?item=photo-2`. It uses `.demo-store-origins` (schema version 5), separate from earlier stores. Old store formats are rejected; this prototype includes no migration. Browser/runtime checks need local listeners and Chromium. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` if needed; otherwise the browser config uses an available macOS Playwright cache.
 
-Validated on 18 October 2026 (UTC): all three TypeScript configurations, **27 semantic/intake/gallery/publication tests + 1 actual Dynamic Worker integration test**, and **4 Chromium tests** passed. The checks exercise complete multi-file ingestion, rollback and stream cleanup, per-original provenance, one-to-many publication, atomic validation/persistence, no reprocessing after completion, explicit artifact sharing and sibling isolation, service grants, revocation during writes, selective Parquet reads, actual Dynamic Workers, and browser containment. [Core questions](evidence/experiments.md), [persisted-output observations](evidence/semantic-observed.json), [independent runtime probe](runtime/README.md).
+Validated on 18 October 2026 (UTC): all three TypeScript configurations, **28 semantic/intake/gallery/publication tests + 1 actual Dynamic Worker integration test**, and **4 Chromium tests** passed. The checks exercise complete multi-file ingestion, rollback and stream cleanup, per-original provenance, one-to-many publication, atomic validation/persistence, no reprocessing after completion, explicit artifact sharing and sibling isolation, service grants, revocation during writes, selective Parquet reads, actual Dynamic Workers, and browser containment. [Core questions](evidence/experiments.md), [persisted-output observations](evidence/semantic-observed.json), [independent runtime probe](runtime/README.md).
 
 ## Evidence and limits
 

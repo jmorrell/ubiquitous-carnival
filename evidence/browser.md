@@ -10,7 +10,7 @@ The host's fixed text view remains readable without synchronization controls. Th
 
 ## Checks
 
-On 18 October 2026 (UTC), all **4 Playwright tests passed in 3.3 seconds** using cached Chromium **153.0.8010.12**. They exercise:
+On 18 October 2026 (UTC), all **4 Playwright tests passed in 3.1 seconds** using cached Chromium **153.0.8010.12**. They exercise:
 
 1. Actual media seeking, playback, and time display, plus the generic Parquet fallback.
 2. Denied parent DOM access, a real foreign item's artifact read, a hostile sibling frame racing the ready handshake, and unsupported broker methods.

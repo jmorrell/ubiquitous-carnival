@@ -18,7 +18,7 @@ async function setup() {
 }
 async function images() {
   return Promise.all(['blue.svg', 'day-2/green.svg'].map(async path => ({
-    filename: path.split('/').at(-1), relativePath: `photos/${path}`, mediaType: 'image/svg+xml',
+    origin: { kind: 'file' as const, relativePath: `photos/${path}` }, mediaType: 'image/svg+xml',
     body: new Blob([await readFile(new URL('../fixtures/gallery/' + path, import.meta.url))]).stream(),
   })));
 }
@@ -33,7 +33,11 @@ it('turns an image input into one gallery with explicit original references', as
   const results = await store.publish(run.id, await galleryProcessor.process(store.input(run.id), host));
   expect(results).toHaveLength(1); const result = results[0]; const itemId = result.item.itemId;
   const manifest: GalleryManifest = await new Response(store.visibleArtifact(itemId, result.publication.artifacts[0]).body).json();
-  expect(manifest.images.map(image => [image.artifact, image.filename, image.relativePath])).toEqual(input.originals.map(original => [original.id, original.filename, original.relativePath]));
+  expect(manifest.images).toEqual(input.originals.map((original, index) => ({ artifact: original.id, caption: ['photos/blue.svg', 'photos/day-2/green.svg'][index] })));
+  expect(input.originals.map(original => original.origin)).toEqual([
+    { kind: 'file', relativePath: 'photos/blue.svg' }, { kind: 'file', relativePath: 'photos/day-2/green.svg' },
+  ]);
+  for (const artifact of result.item.artifacts.filter(artifact => artifact.role !== 'original')) expect(artifact.origin).toEqual({ kind: 'none' });
   expect(await new Response(store.visibleArtifact(itemId, result.publication.presentation.fallback).body).text()).toBe('photos/blue.svg\nphotos/day-2/green.svg');
   expect(store.search('day-2/green')).toEqual([{ itemId, text: 'photos/day-2/green.svg', artifact: input.originals[1].id }]);
   expect(result.item.artifacts.filter(artifact => artifact.role === 'original')).toEqual(input.originals);
@@ -51,7 +55,7 @@ it('lets the selected processor turn equivalent image bytes into separate items'
   expect(new Set(photos.map(view => view.item.itemId)).size).toBe(2);
   for (const [index, view] of photos.entries()) {
     expect(view.item.artifacts.filter(artifact => artifact.role === 'original')).toEqual([photoInput.originals[index]]);
-    expect(view.publication.search).toEqual([{ text: photoInput.originals[index].relativePath, artifact: photoInput.originals[index].id }]);
+    expect(view.publication.search).toEqual([{ text: ['photos/blue.svg', 'photos/day-2/green.svg'][index], artifact: photoInput.originals[index].id }]);
   }
   const shared = photos[0].item.artifacts.find(artifact => artifact.role === 'photo-index')!;
   expect(photos[1].publication.artifacts).toContain(shared.id);
@@ -67,7 +71,7 @@ it('single-file examples reject a collection instead of silently ignoring its ot
   ] as const) {
     await store.install(registration);
     const input = await store.intake([
-      { mediaType, body: streamText('first') }, { mediaType, body: streamText('second') },
+      { origin: { kind: 'none' }, mediaType, body: streamText('first') }, { origin: { kind: 'none' }, mediaType, body: streamText('second') },
     ]);
     await expect(runInProcess(store, input.inputId, registration.id, processor)).rejects.toThrow('requires exactly one supported original');
     expect(store.isProcessed(input.inputId)).toBe(false); expect(store.results(input.inputId)).toEqual([]);

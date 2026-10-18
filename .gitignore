@@ -7,3 +7,4 @@ playwright-report/
 .demo-store-core/
 .demo-store-inputs/
 .demo-store-publications/
+.demo-store-origins/

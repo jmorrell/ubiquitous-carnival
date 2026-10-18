@@ -18,7 +18,7 @@ afterEach(async () => { for (const directory of directories.splice(0)) await rm(
 async function setup(transcriber?: Transcriber) {
   const directory = await mkdtemp(join(tmpdir(), 'core-contract-')); directories.push(directory);
   const store = await FileStore.open(directory, transcriber); await store.install(videoRegistration); await store.install(parquetRegistration);
-  const input = await store.intake([{ filename: 'video.webm', mediaType: 'video/webm', body: new Blob([await readFile(new URL('../fixtures/video.webm', import.meta.url))]).stream() }]);
+  const input = await store.intake([{ origin: { kind: 'file', relativePath: 'video.webm' }, mediaType: 'video/webm', body: new Blob([await readFile(new URL('../fixtures/video.webm', import.meta.url))]).stream() }]);
   return { store, input, directory };
 }
 const processor = createVideoProcessor('<p>arbitrary plugin component</p>');
@@ -39,6 +39,8 @@ describe('one processing call and validated publication results', () => {
     expect(Object.keys(before.artifacts)).toEqual([input.originals[0].id]); expect(before.publications).toEqual({});
     const [published] = await store.publish(run.id, [publication]);
     expect(calls).toBe(1); expect(published.publication).toEqual(publication); expect(store.isProcessed(input.inputId)).toBe(true);
+    expect(published.item.artifacts.find(artifact => artifact.id === input.originals[0].id)?.origin).toEqual({ kind: 'file', relativePath: 'video.webm' });
+    for (const artifact of published.item.artifacts.filter(artifact => artifact.role !== 'original')) expect(artifact.origin).toEqual({ kind: 'none' });
     expect(store.search('blue')[0].artifact).toBe(input.originals[0].id);
     await expect(store.host(run.id).read(input.originals[0].id)).rejects.toThrow('not live');
     expect(await readdir(join(directory, '.work'))).toEqual([]);
@@ -65,7 +67,7 @@ describe('one processing call and validated publication results', () => {
   });
   it('rejects foreign reads, invalid ranges, and unpublished search/presentation references', async () => {
     const { store, input, directory } = await setup();
-    const foreign = await store.intake([{ mediaType: 'text/plain', body: streamText('foreign confidential content') }]);
+    const foreign = await store.intake([{ origin: { kind: 'none' }, mediaType: 'text/plain', body: streamText('foreign confidential content') }]);
     const { run, publication } = await processed(store, input.inputId); const host = store.host(run.id);
     await expect(host.read(foreign.originals[0].id)).rejects.toThrow('outside capability');
     for (const range of [{ start: -1, end: 2 }, { start: 2, end: 1 }, { start: 0, end: input.originals[0].size + 1 }, { start: 0.5, end: 1 }]) {
@@ -98,7 +100,7 @@ describe('one processing call and validated publication results', () => {
   });
   it('revokes future processing and component access while retaining published data and search', async () => {
     const { store, input, directory } = await setup(); const [published] = await runInProcess(store, input.inputId, videoRegistration.id, processor);
-    const other = await store.intake([{ filename: 'other.webm', mediaType: 'video/webm', body: streamText('synthetic second original') }]);
+    const other = await store.intake([{ origin: { kind: 'file', relativePath: 'other.webm' }, mediaType: 'video/webm', body: streamText('synthetic second original') }]);
     const run = await store.begin(other.inputId); const host = store.host(run.id);
     await store.remove(videoRegistration.id);
     await expect(host.read(other.originals[0].id)).rejects.toThrow('revoked');
@@ -133,7 +135,7 @@ describe('one processing call and validated publication results', () => {
       return realRemove(path, options);
     });
     try {
-      const added = await store.intake([{ mediaType: 'text/plain', body: streamText('saved original') }]);
+      const added = await store.intake([{ origin: { kind: 'none' }, mediaType: 'text/plain', body: streamText('saved original') }]);
       expect(store.inputs()).toContainEqual(added);
       expect(store.items()).toEqual([]); expect(store.results(added.inputId)).toEqual([]);
       const [result] = await store.publish(run.id, [publication]);
@@ -188,7 +190,7 @@ describe('second scenario: actual Parquet without new host operations', () => {
   it('parses selected columns through range reads and excludes the raw secret column from search', async () => {
     const { store } = await setup();
     const bytes = await readFile(new URL('../fixtures/tiny.parquet', import.meta.url)); expect(bytes.subarray(0, 4).toString()).toBe('PAR1'); expect(bytes.toString()).toContain('SECRET-DO-NOT-INDEX');
-    const input = await store.intake([{ filename: 'tiny.parquet', mediaType: 'application/vnd.apache.parquet', body: new Blob([bytes]).stream() }]);
+    const input = await store.intake([{ origin: { kind: 'file', relativePath: 'tiny.parquet' }, mediaType: 'application/vnd.apache.parquet', body: new Blob([bytes]).stream() }]);
     const [result] = await runInProcess(store, input.inputId, parquetRegistration.id, parquetProcessor);
     const fallback = await new Response(store.visibleArtifact(result.item.itemId, result.publication.presentation.fallback).body).text();
     expect(fallback).toBe('Harbor: 12\nForest: 34'); expect(store.search('Harbor')).toHaveLength(1); expect(store.search('SECRET')).toHaveLength(0);

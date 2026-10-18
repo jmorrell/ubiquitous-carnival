@@ -15,20 +15,27 @@ it('runs single- and multiple-publication processors through actual Dynamic Work
   for (const registration of [videoRegistration, parquetRegistration, galleryRegistration, photoItemsRegistration]) await store.install(registration);
   const runner = await createRunner(store);
   try {
-    const video = await store.intake([{ filename: 'video.webm', mediaType: 'video/webm', body: new Blob([await readFile(new URL('../fixtures/video.webm', import.meta.url))]).stream() }]);
-    const table = await store.intake([{ filename: 'tiny.parquet', mediaType: 'application/vnd.apache.parquet', body: new Blob([await readFile(new URL('../fixtures/tiny.parquet', import.meta.url))]).stream() }]);
+    const video = await store.intake([{ origin: { kind: 'file', relativePath: 'video.webm' }, mediaType: 'video/webm', body: new Blob([await readFile(new URL('../fixtures/video.webm', import.meta.url))]).stream() }]);
+    const table = await store.intake([{ origin: { kind: 'file', relativePath: 'tiny.parquet' }, mediaType: 'application/vnd.apache.parquet', body: new Blob([await readFile(new URL('../fixtures/tiny.parquet', import.meta.url))]).stream() }]);
+    // URL provenance is recorded metadata; these fixture bytes require no network fetch.
     const imageUploads = () => Promise.all(['blue.svg', 'day-2/green.svg'].map(async path => ({
-      filename: path.split('/').at(-1), relativePath: 'photos/' + path, mediaType: 'image/svg+xml',
+      origin: path === 'blue.svg'
+        ? { kind: 'file' as const, relativePath: 'photos/' + path }
+        : { kind: 'url' as const, url: 'https://example.com/photos/' + path },
+      mediaType: 'image/svg+xml',
       body: new Blob([await readFile(new URL('../fixtures/gallery/' + path, import.meta.url))]).stream(),
     })));
     const galleryInput = await store.intake(await imageUploads()); const photoInput = await store.intake(await imageUploads());
     const galleryResults = await runner.process(galleryInput.inputId, 'image-gallery');
     expect(galleryResults).toHaveLength(1); const galleryView = galleryResults[0];
     const gallery: GalleryManifest = await new Response(store.visibleArtifact(galleryView.item.itemId, galleryView.publication.artifacts[0]).body).json();
-    expect(gallery.images.map(image => image.relativePath)).toEqual(['photos/blue.svg', 'photos/day-2/green.svg']);
+    expect(gallery.images.map(image => image.caption)).toEqual(['photos/blue.svg', 'https://example.com/photos/day-2/green.svg']);
+    const imageOrigins = [{ kind: 'file', relativePath: 'photos/blue.svg' }, { kind: 'url', url: 'https://example.com/photos/day-2/green.svg' }];
+    expect(galleryView.item.artifacts.filter(artifact => artifact.role === 'original').map(artifact => artifact.origin)).toEqual(imageOrigins);
     expect(gallery.images.map(image => image.artifact)).toEqual(galleryInput.originals.map(original => original.id));
     const photos = await runner.process(photoInput.inputId, 'photo-items');
     expect(photos).toHaveLength(2);
+    expect(photos.map(view => view.publication.title)).toEqual(gallery.images.map(image => image.caption));
     expect(photos.map(view => view.item.artifacts.filter(artifact => artifact.role === 'original').map(artifact => artifact.id))).toEqual(photoInput.originals.map(original => [original.id]));
     expect(() => store.visibleArtifact(photos[0].item.itemId, photoInput.originals[1].id)).toThrow();
     const shared = photos[0].item.artifacts.find(artifact => artifact.role === 'photo-index')!;
@@ -45,7 +52,11 @@ it('runs single- and multiple-publication processors through actual Dynamic Work
     expect(await new Response(store.visibleArtifact(tableView.item.itemId, tableView.publication.presentation.fallback).body).text()).toBe('Harbor: 12\nForest: 34');
     expect(() => store.visibleArtifact(tableView.item.itemId, table.originals[0].id)).toThrow();
     expect(store.search('SECRET')).toHaveLength(0);
+    for (const view of [videoView, tableView, galleryView, ...photos]) {
+      for (const artifact of view.item.artifacts.filter(artifact => artifact.role !== 'original')) expect(artifact.origin).toEqual({ kind: 'none' });
+    }
     const reloaded = await FileStore.open(directory);
+    expect(reloaded.inputs().find(input => input.inputId === galleryInput.inputId)?.originals.map(artifact => artifact.origin)).toEqual(imageOrigins);
     for (const [input, results] of [[video, [videoView]], [table, [tableView]], [galleryInput, galleryResults], [photoInput, photos]] as const) expect(reloaded.results(input.inputId)).toEqual(results);
     await expect(runner.process(video.inputId, 'video-viewer')).rejects.toThrow('already processed');
     const reads = store.audit.reads.filter(read => read.inputId === table.inputId); expect(reads.every(read => !!read.range)).toBe(true); expect(reads.length).toBeGreaterThan(1);

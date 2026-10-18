@@ -13,8 +13,8 @@ async function setup() {
   const store = await FileStore.open(directory);
   await store.install({ id: 'documents', version: '0.1.0', accepts: ['text/plain'], grants: [] });
   const input = await store.intake([
-    { mediaType: 'text/plain', filename: 'first.txt', sourceUrl: 'https://example.com/first', body: streamText('First original') },
-    { mediaType: 'text/plain', filename: 'second.txt', sourceUrl: 'https://example.com/second', body: streamText('Second original') },
+    { mediaType: 'text/plain', origin: { kind: 'url', url: 'https://example.com/first' }, body: streamText('First original') },
+    { mediaType: 'text/plain', origin: { kind: 'url', url: 'https://example.com/second' }, body: streamText('Second original') },
   ]);
   return { directory, store, input };
 }
@@ -42,6 +42,9 @@ describe('an input produces an atomic set of published items', () => {
     expect(contexts.map(context => context.publication)).toEqual(publications);
     expect(contexts.map(context => context.item.artifacts.map(artifact => artifact.id))).toEqual(publications.map(publication => publication.artifacts));
     expect(contexts[0].item.artifacts[0]).toEqual(first);
+    expect(first.origin).toEqual({ kind: 'url', url: 'https://example.com/first' });
+    expect(second.origin).toEqual({ kind: 'url', url: 'https://example.com/second' });
+    expect(shared.origin).toEqual({ kind: 'none' }); expect(discarded.origin).toEqual({ kind: 'none' });
     expect(store.items()).toEqual(contexts.map(context => context.item));
     expect(store.results(input.inputId)).toEqual(contexts); expect(store.isProcessed(input.inputId)).toBe(true);
     for (const itemId of itemIds) expect(await bytes(store, itemId, shared.id)).toBe('Shared index');
@@ -86,7 +89,7 @@ describe('an input produces an atomic set of published items', () => {
 
   it('rolls back all new blobs on a failed set commit while preserving already shared content', async () => {
     const { store, input, directory } = await setup();
-    const existing = await store.intake([{ mediaType: 'text/plain', body: streamText('Already stored shared bytes') }]);
+    const existing = await store.intake([{ origin: { kind: 'none' }, mediaType: 'text/plain', body: streamText('Already stored shared bytes') }]);
     const priorRun = await store.begin(existing.inputId);
     const [prior] = await store.publish(priorRun.id, [manifest('Already published', existing.originals[0].id)]);
     const before = (await readdir(join(directory, 'blobs'))).sort();
