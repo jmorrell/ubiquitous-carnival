@@ -18,7 +18,7 @@ afterEach(async () => { for (const directory of directories.splice(0)) await rm(
 async function setup(transcriber?: Transcriber) {
   const directory = await mkdtemp(join(tmpdir(), 'core-contract-')); directories.push(directory);
   const store = await FileStore.open(directory, transcriber); await store.install(videoRegistration); await store.install(parquetRegistration);
-  const item = await store.intake({ kind: 'upload', filename: 'video.webm' }, 'video/webm', new Blob([await readFile(new URL('../fixtures/video.webm', import.meta.url))]).stream());
+  const item = await store.intake({ kind: 'upload' }, [{ filename: 'video.webm', mediaType: 'video/webm', body: new Blob([await readFile(new URL('../fixtures/video.webm', import.meta.url))]).stream() }]);
   return { store, item, directory };
 }
 const processor = createVideoProcessor('<p>arbitrary plugin component</p>');
@@ -64,7 +64,7 @@ describe('one processing call and one validated publication', () => {
   });
   it('rejects foreign reads, invalid ranges, and unpublished search/presentation references', async () => {
     const { store, item, directory } = await setup();
-    const foreign = await store.intake({ kind: 'document', author: 'user' }, 'text/plain', streamText('foreign confidential content'));
+    const foreign = await store.intake({ kind: 'document' }, [{ mediaType: 'text/plain', body: streamText('foreign confidential content') }]);
     const { run, publication } = await processed(store, item.itemId); const host = store.host(run.id);
     await expect(host.read(foreign.originals[0].id)).rejects.toThrow('outside capability');
     for (const range of [{ start: -1, end: 2 }, { start: 2, end: 1 }, { start: 0, end: item.originals[0].size + 1 }, { start: 0.5, end: 1 }]) {
@@ -97,7 +97,7 @@ describe('one processing call and one validated publication', () => {
   });
   it('revokes future processing and component access while retaining published data and search', async () => {
     const { store, item, directory } = await setup(); const published = await runInProcess(store, item.itemId, videoRegistration.id, processor);
-    const other = await store.intake({ kind: 'upload', filename: 'other.webm' }, 'video/webm', streamText('synthetic second original'));
+    const other = await store.intake({ kind: 'upload' }, [{ filename: 'other.webm', mediaType: 'video/webm', body: streamText('synthetic second original') }]);
     const run = await store.begin(other.itemId); const host = store.host(run.id);
     await store.remove(videoRegistration.id);
     await expect(host.read(other.originals[0].id)).rejects.toThrow('revoked');
@@ -131,7 +131,7 @@ describe('one processing call and one validated publication', () => {
       return realRemove(path, options);
     });
     try {
-      const added = await store.intake({ kind: 'document', author: 'user' }, 'text/plain', streamText('saved original'));
+      const added = await store.intake({ kind: 'document' }, [{ mediaType: 'text/plain', body: streamText('saved original') }]);
       expect(store.items()).toContainEqual(added);
       expect(await new Response(store.visibleArtifact(added.itemId, added.originals[0].id).body).text()).toBe('saved original');
       const result = await store.publish(run.id, publication);
@@ -186,7 +186,7 @@ describe('second scenario: actual Parquet without new host operations', () => {
   it('parses selected columns through range reads and excludes the raw secret column from search', async () => {
     const { store } = await setup();
     const bytes = await readFile(new URL('../fixtures/tiny.parquet', import.meta.url)); expect(bytes.subarray(0, 4).toString()).toBe('PAR1'); expect(bytes.toString()).toContain('SECRET-DO-NOT-INDEX');
-    const item = await store.intake({ kind: 'upload', filename: 'tiny.parquet' }, 'application/vnd.apache.parquet', new Blob([bytes]).stream());
+    const item = await store.intake({ kind: 'upload' }, [{ filename: 'tiny.parquet', mediaType: 'application/vnd.apache.parquet', body: new Blob([bytes]).stream() }]);
     const result = await runInProcess(store, item.itemId, parquetRegistration.id, parquetProcessor);
     const fallback = await new Response(store.visibleArtifact(item.itemId, result.publication.presentation.fallback).body).text();
     expect(fallback).toBe('Harbor: 12\nForest: 34'); expect(store.search('Harbor')).toHaveLength(1); expect(store.search('SECRET')).toHaveLength(0);

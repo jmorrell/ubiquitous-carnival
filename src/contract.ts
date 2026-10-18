@@ -2,9 +2,9 @@
 export type ArtifactId = string;
 export type ItemId = string;
 export type Source =
-  | { kind: "url" | "capture"; url: string }
-  | { kind: "upload"; filename: string }
-  | { kind: "document"; author: "user" | "agent" };
+  | { kind: "url"; url: string }
+  | { kind: "upload" }
+  | { kind: "document" };
 export interface Artifact {
   id: ArtifactId;
   itemId: ItemId;
@@ -13,7 +13,10 @@ export interface Artifact {
   size: number;
   sha256: string;
 }
-export interface Input { itemId: ItemId; source: Source; originals: readonly Artifact[] }
+/** Per-file provenance labels, never paths into the host filesystem. */
+export interface OriginalArtifact extends Artifact { filename?: string; relativePath?: string }
+/** Ingestion has completed: every original already has stored bytes and host-issued identity. */
+export interface Input { itemId: ItemId; source: Source; originals: readonly OriginalArtifact[] }
 export interface Item extends Input {}
 /** End is exclusive. */
 export interface ByteRange { start: number; end: number }

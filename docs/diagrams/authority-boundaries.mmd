@@ -3,7 +3,7 @@ flowchart TB
     direction LR
     subgraph HOST[Trusted host]
       direction TB
-      A[Archive original<br/>Choose processor]
+      A[Archive all originals → Input<br/>Choose one processor for collection]
       C[Scoped capabilities<br/>read · write · transcribe]
       V[Validate manifest<br/>Save one publication]
       S[Host-owned storage<br/>Originals + artifact refs<br/>Selected search text]
@@ -11,7 +11,7 @@ flowchart TB
       V --> S
     end
     subgraph WORKER[Untrusted Dynamic Worker]
-      P[process input + host<br/>Creates bytes via capabilities<br/>No ambient network]
+      P[process input + host<br/>Reads assigned originals array<br/>Writes derived bytes via capabilities<br/>No ambient network]
     end
     C -->|capability calls| P
     P -->|references + metadata| V

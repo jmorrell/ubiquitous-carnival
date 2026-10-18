@@ -3,16 +3,16 @@ import { createReadStream } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
-import type { Artifact, ByteRange, Item, ProcessingHost, ProcessorRegistration, Publication, Source, TranscriptSegment, ViewContext } from './contract';
+import type { Artifact, ByteRange, Item, OriginalArtifact, ProcessingHost, ProcessorRegistration, Publication, Source, TranscriptSegment, ViewContext } from './contract';
 
 type Installed = { registration: ProcessorRegistration; epoch: string; active: boolean };
 type ProcessorInfo = { plugin: string; version: string; codeSha256?: string };
 type StoredPublication = { publication: Publication; processor: ProcessorInfo };
-type State = { schemaVersion: 2; items: Record<string, Item>; artifacts: Record<string, Artifact>; publications: Record<string, StoredPublication>; plugins: Record<string, Installed> };
+type State = { schemaVersion: 3; items: Record<string, Item>; artifacts: Record<string, Artifact>; publications: Record<string, StoredPublication>; plugins: Record<string, Installed> };
 type PendingArtifact = { artifact: Artifact; path: string };
 /** Execution authority and incomplete output are transient, never saved as a draft. */
 type Run = ProcessorInfo & { id: string; itemId: string; epoch: string; outputs: Map<string, PendingArtifact>; finishing: boolean };
-const blank = (): State => ({ schemaVersion: 2, items: {}, artifacts: {}, publications: {}, plugins: {} });
+const blank = (): State => ({ schemaVersion: 3, items: {}, artifacts: {}, publications: {}, plugins: {} });
 const clone = <T>(value: T): T => structuredClone(value);
 const id = (prefix: string) => `${prefix}_${randomUUID()}`;
 function requireThat(test: unknown, message: string): asserts test { if (!test) throw new Error(message); }
@@ -20,6 +20,13 @@ const MAX_BLOB = 16 * 1024 * 1024;
 const MAX_RUN = 32 * 1024 * 1024;
 export const streamText = (text: string): ReadableStream<Uint8Array> => new Blob([text]).stream();
 export type Transcriber = (original: Artifact) => Promise<TranscriptSegment[]>;
+/** Host-only intake helper; public upload APIs may assemble these streams in different ways. */
+export interface OriginalUpload {
+  mediaType: string;
+  body: ReadableStream<Uint8Array>;
+  filename?: string;
+  relativePath?: string;
+}
 /** Explicitly synthetic and deterministic. No audio recognition or provider call is claimed. */
 export const syntheticTranscriber: Transcriber = async () => [
   { startMs: 0, endMs: 900, text: 'A blue square appears.' },
@@ -36,7 +43,7 @@ export class FileStore {
     let state: State;
     try {
       state = JSON.parse(await fs.readFile(join(directory, 'metadata.json'), 'utf8'));
-      requireThat(state.schemaVersion === 2, 'incompatible store format; use a fresh directory (for example .demo-store-core)');
+      requireThat(state.schemaVersion === 3, 'incompatible store format; use a fresh directory (for example .demo-store-inputs)');
     } catch (error: any) { if (error.code !== 'ENOENT') throw error; state = blank(); }
     await fs.mkdir(join(directory, 'blobs'), { recursive: true });
     await fs.mkdir(join(directory, '.work'), { recursive: true });
@@ -84,30 +91,59 @@ export class FileStore {
     try { await fs.link(path, join(this.directory, 'blobs', sha256)); return true; }
     catch (error: any) { if (error.code !== 'EEXIST') throw error; return false; }
   }
-  async intake(source: Source, mediaType: string, body: ReadableStream<Uint8Array>): Promise<Item> {
-    const { path, ...stored } = await this.temporaryBlob(body, join(this.directory, '.work')); const itemId = id('item');
-    const original: Artifact = { id: id('artifact'), itemId, role: 'original', mediaType, ...stored };
-    const item: Item = { itemId, source: clone(source), originals: [original] }; let committed = false;
+  async intake(source: Source, originals: readonly OriginalUpload[]): Promise<Item> {
+    const unread = new Set(Array.isArray(originals) ? originals.map(original => original?.body) : []);
+    const staged: { path: string; artifact: OriginalArtifact }[] = []; let committed = false;
     try {
+      requireThat(Array.isArray(originals) && originals.length > 0, 'at least one original is required');
+      const uploads = originals.map(original => {
+        requireThat(original && typeof original.mediaType === 'string' && original.mediaType.length < 150 && /^[\w!#$&^.+-]+\/[\w!#$&^.+-]+(?:;[^\r\n]*)?$/.test(original.mediaType), 'invalid original media type');
+        const { mediaType, body, filename, relativePath } = original;
+        requireThat(body && typeof body.getReader === 'function', 'original byte stream required');
+        if (filename !== undefined) requireThat(typeof filename === 'string' && filename.length > 0 && filename.length <= 255 && !/[\/\\\u0000-\u001f\u007f]/.test(filename) && filename !== '.' && filename !== '..', 'invalid original filename');
+        if (relativePath !== undefined) requireThat(typeof relativePath === 'string' && relativePath.length > 0 && relativePath.length <= 4096 && !/[\\\u0000-\u001f\u007f]/.test(relativePath) && !/^[A-Za-z]:/.test(relativePath) && relativePath.split('/').every(part => part !== '' && part !== '.' && part !== '..'), 'invalid original relative path');
+        return { mediaType, body, ...(filename === undefined ? {} : { filename }), ...(relativePath === undefined ? {} : { relativePath }) };
+      });
+      const itemId = id('item'); const item: Item = { itemId, source: clone(source), originals: [] };
+      // Keep partial uploads outside the item index; all streams must finish before committing.
+      for (const { body, ...metadata } of uploads) {
+        const { path, ...stored } = await this.temporaryBlob(body, join(this.directory, '.work'));
+        unread.delete(body);
+        staged.push({ path, artifact: { id: id('artifact'), itemId, role: 'original', ...metadata, ...stored } });
+      }
+      item.originals = staged.map(entry => entry.artifact);
       await this.serialize(async () => {
-        const created = await this.promote(path, stored.sha256);
+        const created: string[] = [];
         try {
-          const next = clone(this.state); next.artifacts[original.id] = original; next.items[itemId] = item;
+          const next = clone(this.state);
+          for (const { path, artifact } of staged) {
+            if (await this.promote(path, artifact.sha256)) created.push(artifact.sha256);
+            next.artifacts[artifact.id] = artifact;
+          }
+          next.items[itemId] = item;
           await this.save(next); this.state = next;
-        } catch (error) { if (created) await fs.rm(join(this.directory, 'blobs', stored.sha256), { force: true }); throw error; }
+        } catch (error) {
+          for (const sha256 of created) await fs.rm(join(this.directory, 'blobs', sha256), { force: true });
+          throw error;
+        }
       });
       committed = true; return clone(item);
+    } catch (error) {
+      // Later streams may already own resources even though intake has not pulled their bytes.
+      // Cancellation is best-effort: one failed cleanup must not mask the upload's rejection.
+      await Promise.allSettled([...unread].map(async body => { if (typeof body?.cancel === 'function') await body.cancel(error); }));
+      throw error;
     } finally {
-      // A saved original is successful intake even if its temporary link cannot be removed.
-      if (committed) await fs.rm(path, { force: true }).catch(() => {});
-      else await fs.rm(path, { force: true });
+      // A saved batch is successful intake even if its temporary links cannot be removed.
+      const cleanup = Promise.all(staged.map(({ path }) => fs.rm(path, { force: true })));
+      if (committed) await cleanup.catch(() => {}); else await cleanup;
     }
   }
   items() { return clone(Object.values(this.state.items)); }
   isPublished(itemId: string) { return Boolean(this.state.publications[itemId]); }
   candidates(itemId: string): ProcessorRegistration[] {
     const item = this.state.items[itemId]; requireThat(item, 'unknown item');
-    return clone(Object.values(this.state.plugins).filter(p => p.active && p.registration.accepts.some(pattern => item.originals.some(a => a.mediaType === pattern || (pattern.endsWith('/*') && a.mediaType.startsWith(pattern.slice(0, -1)))))).map(p => p.registration));
+    return clone(Object.values(this.state.plugins).filter(p => p.active && item.originals.every(a => p.registration.accepts.some(pattern => a.mediaType === pattern || (pattern.endsWith('/*') && a.mediaType.startsWith(pattern.slice(0, -1)))))).map(p => p.registration));
   }
   async begin(itemId: string, choice?: string, codeSha256?: string): Promise<{ id: string; itemId: string }> {
     return this.serialize(async () => {

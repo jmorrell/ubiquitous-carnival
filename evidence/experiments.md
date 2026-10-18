@@ -10,4 +10,6 @@ The experiment now concentrates on one published result per item. These checks r
 
 A second processor parses a real Parquet fixture through selected byte ranges and emits a readable summary with deliberately selected search text. It uses the same contract and no transcription grant. Its tests assert which bytes were read, rather than merely checking that a range-shaped API was called.
 
+A folder/gallery fixture supplies two image originals, including a nested relative path, to one processor invocation. Tests verify batch completion before item visibility, rollback on ingestion failure, host-issued identities, every-original MIME matching, and preservation of filenames/paths through an actual Dynamic Worker. Its manifest and readable list demonstrate collection input without adding a host hook.
+
 There is no CAD locator challenge in this scope. The video component owns cue timing internally; the host search contract returns artifact references rather than universal locations.

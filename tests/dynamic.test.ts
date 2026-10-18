@@ -6,14 +6,24 @@ import { FileStore } from '../src/store';
 import { createRunner } from '../src/runner';
 import { videoRegistration } from '../plugins/video';
 import { parquetRegistration } from '../plugins/parquet';
+import { galleryRegistration, type GalleryManifest } from '../plugins/gallery';
 
-it('runs both real processors once inside Dynamic Workers through streamed scoped capabilities', async () => {
+it('runs single-file and collection processors once inside Dynamic Workers through streamed scoped capabilities', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'dynamic-core-'));
-  const store = await FileStore.open(directory); await store.install(videoRegistration); await store.install(parquetRegistration);
+  const store = await FileStore.open(directory); await store.install(videoRegistration); await store.install(parquetRegistration); await store.install(galleryRegistration);
   const runner = await createRunner(store);
   try {
-    const video = await store.intake({ kind: 'upload', filename: 'video.webm' }, 'video/webm', new Blob([await readFile(new URL('../fixtures/video.webm', import.meta.url))]).stream());
-    const table = await store.intake({ kind: 'upload', filename: 'tiny.parquet' }, 'application/vnd.apache.parquet', new Blob([await readFile(new URL('../fixtures/tiny.parquet', import.meta.url))]).stream());
+    const video = await store.intake({ kind: 'upload' }, [{ filename: 'video.webm', mediaType: 'video/webm', body: new Blob([await readFile(new URL('../fixtures/video.webm', import.meta.url))]).stream() }]);
+    const table = await store.intake({ kind: 'upload' }, [{ filename: 'tiny.parquet', mediaType: 'application/vnd.apache.parquet', body: new Blob([await readFile(new URL('../fixtures/tiny.parquet', import.meta.url))]).stream() }]);
+    const images = await store.intake({ kind: 'upload' }, await Promise.all(['blue.svg', 'day-2/green.svg'].map(async path => ({
+      filename: path.split('/').at(-1), relativePath: 'photos/' + path, mediaType: 'image/svg+xml',
+      body: new Blob([await readFile(new URL('../fixtures/gallery/' + path, import.meta.url))]).stream(),
+    }))));
+    const galleryView = await runner.process(images.itemId, 'image-gallery');
+    const gallery: GalleryManifest = await new Response(store.visibleArtifact(images.itemId, galleryView.publication.artifacts[0]).body).json();
+    expect(gallery.images.map(image => image.relativePath)).toEqual(['photos/blue.svg', 'photos/day-2/green.svg']);
+    expect(gallery.images.map(image => image.artifact)).toEqual(images.originals.map(original => original.id));
+    expect(store.search('day-2/green')[0].itemId).toBe(images.itemId);
     const videoView = await runner.process(video.itemId, videoRegistration.id as 'video-viewer');
     const tableView = await runner.process(table.itemId, parquetRegistration.id as 'parquet-summary');
     const metadata = JSON.parse(await readFile(join(directory, 'metadata.json'), 'utf8'));
@@ -23,13 +33,13 @@ it('runs both real processors once inside Dynamic Workers through streamed scope
     expect(videoView.publication.presentation.component).toBeTruthy();
     expect(await new Response(store.visibleArtifact(table.itemId, tableView.publication.presentation.fallback).body).text()).toBe('Harbor: 12\nForest: 34');
     expect(store.search('SECRET')).toHaveLength(0);
-    const reloaded = await FileStore.open(directory); expect(reloaded.context(video.itemId)).toEqual(videoView); expect(reloaded.context(table.itemId)).toEqual(tableView);
+    const reloaded = await FileStore.open(directory); expect(reloaded.context(video.itemId)).toEqual(videoView); expect(reloaded.context(table.itemId)).toEqual(tableView); expect(reloaded.context(images.itemId)).toEqual(galleryView);
     await expect(runner.process(video.itemId, 'video-viewer')).rejects.toThrow('already published');
     const reads = store.audit.reads.filter(read => read.itemId === table.itemId); expect(reads.every(read => !!read.range)).toBe(true); expect(reads.length).toBeGreaterThan(1);
     const layout = JSON.parse(await readFile(new URL('../fixtures/tiny-layout.json', import.meta.url), 'utf8'));
     expect(reads.some(read => read.range!.start === 0 && read.range!.end === table.originals[0].size)).toBe(false);
     expect(reads.some(read => read.range!.start < layout.columns.secret.end && read.range!.end > layout.columns.secret.start)).toBe(false);
     await mkdir(new URL('../evidence/', import.meta.url), { recursive: true });
-    await writeFile(new URL('../evidence/semantic-observed.json', import.meta.url), JSON.stringify({ observedAt: new Date().toISOString(), backend: 'Miniflare 5 / workerd Dynamic Workers', flow: 'intake → process once → publish → view', video: { publication: videoView.publication, processor: videoProcessor }, parquet: { publication: tableView.publication, processor: tableProcessor, ranges: reads.map(read => read.range), excludedSecretSearchHits: store.search('SECRET').length, secretPage: layout.columns.secret, secretPageRead: false }, restartRetainedPublications: true, replacementProcessingDenied: true }, null, 2) + '\n');
+    await writeFile(new URL('../evidence/semantic-observed.json', import.meta.url), JSON.stringify({ observedAt: new Date().toISOString(), backend: 'Miniflare 5 / workerd Dynamic Workers', flow: 'ingestion completes → Input with stored originals → process once → publish → view', gallery: { input: images, publication: galleryView.publication, manifest: gallery, processor: metadata.publications[images.itemId].processor }, video: { publication: videoView.publication, processor: videoProcessor }, parquet: { publication: tableView.publication, processor: tableProcessor, ranges: reads.map(read => read.range), excludedSecretSearchHits: store.search('SECRET').length, secretPage: layout.columns.secret, secretPageRead: false }, restartRetainedPublications: true, replacementProcessingDenied: true }, null, 2) + '\n');
   } finally { await runner.dispose(); await rm(directory, { recursive: true, force: true }); }
 });

@@ -9,18 +9,17 @@ import { videoRegistration } from '../plugins/video';
 import { parquetRegistration } from '../plugins/parquet';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const store = await FileStore.open(process.env.DEMO_STORE ?? root + '.demo-store-core');
+const store = await FileStore.open(process.env.DEMO_STORE ?? root + '.demo-store-inputs');
 await store.install(videoRegistration); await store.install(parquetRegistration);
-let items = store.items();
-if (!items.some(item => item.originals[0].mediaType === 'video/webm')) {
-  await store.intake({ kind: 'upload', filename: 'video.webm' }, 'video/webm', Readable.toWeb(createReadStream(root + 'fixtures/video.webm')) as ReadableStream<Uint8Array>);
-  await store.intake({ kind: 'upload', filename: 'tiny.parquet' }, 'application/vnd.apache.parquet', Readable.toWeb(createReadStream(root + 'fixtures/tiny.parquet')) as ReadableStream<Uint8Array>);
-  items = store.items();
-}
 const runner = await createRunner(store);
-for (const item of items) if (!store.isPublished(item.itemId)) await runner.process(item.itemId, item.originals[0].mediaType === 'video/webm' ? 'video-viewer' : 'parquet-summary');
-const videoId = items.find(item => item.originals[0].mediaType === 'video/webm')!.itemId;
-const parquetId = items.find(item => item.originals[0].mediaType === 'application/vnd.apache.parquet')!.itemId;
+async function demoItem(filename: string, mediaType: string, plugin: 'video-viewer' | 'parquet-summary') {
+  const item = store.items().find(item => item.originals.length === 1 && item.originals[0].mediaType === mediaType)
+    ?? await store.intake({ kind: 'upload' }, [{ filename, mediaType, body: Readable.toWeb(createReadStream(root + 'fixtures/' + filename)) as ReadableStream<Uint8Array> }]);
+  if (!store.isPublished(item.itemId)) await runner.process(item.itemId, plugin);
+  return item.itemId;
+}
+const videoId = await demoItem('video.webm', 'video/webm', 'video-viewer');
+const parquetId = await demoItem('tiny.parquet', 'application/vnd.apache.parquet', 'parquet-summary');
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url ?? '/', 'http://localhost');

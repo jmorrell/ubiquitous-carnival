@@ -12,14 +12,20 @@ export async function runInProcess(store: FileStore, itemId: string, plugin: str
   catch (error) { await store.fail(run.id, error); throw error; }
 }
 
+const entrypoints = {
+  'video-viewer': '../plugins/video-worker.ts',
+  'parquet-summary': '../plugins/parquet-worker.ts',
+  'image-gallery': '../plugins/gallery-worker.ts',
+} as const;
+
 export async function createRunner(store: FileStore) {
   const runtime = await createDynamicRuntime(request => store.capabilityFetch(request));
   const compiled = new Map<string, string>();
   return {
-    async process(itemId: string, plugin: 'video-viewer' | 'parquet-summary') {
+    async process(itemId: string, plugin: keyof typeof entrypoints) {
       let source = compiled.get(plugin);
       if (!source) {
-        const entry = fileURLToPath(new URL(plugin === 'video-viewer' ? '../plugins/video-worker.ts' : '../plugins/parquet-worker.ts', import.meta.url));
+        const entry = fileURLToPath(new URL(entrypoints[plugin], import.meta.url));
         const result = await build({ entryPoints: [entry], bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022', external: ['cloudflare:workers'], loader: { '.html': 'text' } });
         source = result.outputFiles[0].text; compiled.set(plugin, source);
       }

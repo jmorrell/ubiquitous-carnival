@@ -3,6 +3,7 @@ import type { Processor, ProcessorRegistration } from '../src/contract';
 export const parquetRegistration: ProcessorRegistration = { id: 'parquet-summary', version: '0.1.0', accepts: ['application/vnd.apache.parquet'], grants: [] };
 export const parquetProcessor: Processor = {
   async process(input, host) {
+    if (input.originals.length !== 1 || input.originals[0].mediaType !== 'application/vnd.apache.parquet') throw new Error('Parquet summary requires exactly one supported original');
     const original = input.originals[0];
     const file = { byteLength: original.size, slice: async (start: number, end?: number) => new Response(await host.read(original.id, { start, end: end ?? original.size })).arrayBuffer() };
     // Default metadata prefetch is 512 KiB and would read this entire tiny fixture.

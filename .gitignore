@@ -5,3 +5,4 @@ test-results/
 playwright-report/
 .demo-store/
 .demo-store-core/
+.demo-store-inputs/

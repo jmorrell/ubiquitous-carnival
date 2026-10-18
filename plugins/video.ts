@@ -3,6 +3,7 @@ const bytes = (text: string) => new Blob([text]).stream();
 export const videoRegistration: ProcessorRegistration = { id: 'video-viewer', version: '0.1.0', accepts: ['video/*'], grants: ['transcribe'] };
 export const createVideoProcessor = (component: string): Processor => ({
   async process(input, host) {
+    if (input.originals.length !== 1 || !input.originals[0].mediaType.startsWith('video/')) throw new Error('Video viewer requires exactly one supported original');
     const original = input.originals[0];
     const segments = await host.transcribe(original.id);
     const transcript = await host.write({ role: 'transcript', mediaType: 'application/json' }, bytes(JSON.stringify({ segments })));

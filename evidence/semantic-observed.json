@@ -1,37 +1,109 @@
 {
-  "observedAt": "2026-10-18T02:13:41.160Z",
+  "observedAt": "2026-10-18T02:30:32.048Z",
   "backend": "Miniflare 5 / workerd Dynamic Workers",
-  "flow": "intake → process once → publish → view",
+  "flow": "ingestion completes → Input with stored originals → process once → publish → view",
+  "gallery": {
+    "input": {
+      "itemId": "item_b119fe1b-0dbc-4139-b0de-31cc560f8aaa",
+      "source": {
+        "kind": "upload"
+      },
+      "originals": [
+        {
+          "id": "artifact_c99c0819-ad1f-491e-818f-500a811a9b63",
+          "itemId": "item_b119fe1b-0dbc-4139-b0de-31cc560f8aaa",
+          "role": "original",
+          "mediaType": "image/svg+xml",
+          "filename": "blue.svg",
+          "relativePath": "photos/blue.svg",
+          "sha256": "a8ea801d6a338b9f75c09838aead926ee9f5ed2a0b12ad43747fa88cf2d11a35",
+          "size": 115
+        },
+        {
+          "id": "artifact_a20c5f6c-04b0-4720-b55b-572ac65b685e",
+          "itemId": "item_b119fe1b-0dbc-4139-b0de-31cc560f8aaa",
+          "role": "original",
+          "mediaType": "image/svg+xml",
+          "filename": "green.svg",
+          "relativePath": "photos/day-2/green.svg",
+          "sha256": "8564b16629506ca8625ce5170a8682cb4eed17747c5e3cae3b4435f249140022",
+          "size": 115
+        }
+      ]
+    },
+    "publication": {
+      "title": "Image gallery",
+      "description": "2 original images in input order.",
+      "artifacts": [
+        "artifact_1163d90a-0ba5-4bb1-bdde-8047a1159e6a",
+        "artifact_e59776bc-f169-43ed-9376-6ac7cc584ba3"
+      ],
+      "search": [
+        {
+          "text": "photos/blue.svg",
+          "artifact": "artifact_c99c0819-ad1f-491e-818f-500a811a9b63"
+        },
+        {
+          "text": "photos/day-2/green.svg",
+          "artifact": "artifact_a20c5f6c-04b0-4720-b55b-572ac65b685e"
+        }
+      ],
+      "presentation": {
+        "fallback": "artifact_e59776bc-f169-43ed-9376-6ac7cc584ba3"
+      }
+    },
+    "manifest": {
+      "images": [
+        {
+          "artifact": "artifact_c99c0819-ad1f-491e-818f-500a811a9b63",
+          "filename": "blue.svg",
+          "relativePath": "photos/blue.svg",
+          "caption": "photos/blue.svg"
+        },
+        {
+          "artifact": "artifact_a20c5f6c-04b0-4720-b55b-572ac65b685e",
+          "filename": "green.svg",
+          "relativePath": "photos/day-2/green.svg",
+          "caption": "photos/day-2/green.svg"
+        }
+      ]
+    },
+    "processor": {
+      "plugin": "image-gallery",
+      "version": "0.1.0",
+      "codeSha256": "5eb57cc5c7aa1f136f037f49f73c2b5e01de03ca0b8167dceb0a257adc7527be"
+    }
+  },
   "video": {
     "publication": {
       "title": "Synthetic video: blue and green",
       "description": "Controlled transcript fixture; no real transcription provider.",
       "artifacts": [
-        "artifact_880050e6-74d5-4f8e-bc5d-4a4f20e606c6",
-        "artifact_29b74fda-616a-46aa-ac7d-74db8cf92278",
-        "artifact_e3b68a71-6086-4460-b1ae-69499c0eda74",
-        "artifact_51dbca65-a43a-427d-be23-0af916c0c618"
+        "artifact_450a2b00-056b-4d83-942e-09d4904a7fa8",
+        "artifact_e29aab11-1965-4028-9651-b23c1ea8705f",
+        "artifact_8725cedb-4ed5-4ce6-98a7-be6919f1fbef",
+        "artifact_de3d1099-17cd-4c5b-8628-13bfe9066013"
       ],
       "search": [
         {
           "text": "A blue square appears.",
-          "artifact": "artifact_a74fba21-4d88-4611-bd5a-2c188893358b"
+          "artifact": "artifact_4a3e1bea-2cab-4d7e-94a8-4c916d3864af"
         },
         {
           "text": "A green square appears.",
-          "artifact": "artifact_a74fba21-4d88-4611-bd5a-2c188893358b"
+          "artifact": "artifact_4a3e1bea-2cab-4d7e-94a8-4c916d3864af"
         }
       ],
       "presentation": {
-        "fallback": "artifact_29b74fda-616a-46aa-ac7d-74db8cf92278",
-        "thumbnail": "artifact_e3b68a71-6086-4460-b1ae-69499c0eda74",
-        "component": "artifact_51dbca65-a43a-427d-be23-0af916c0c618"
+        "fallback": "artifact_e29aab11-1965-4028-9651-b23c1ea8705f",
+        "thumbnail": "artifact_8725cedb-4ed5-4ce6-98a7-be6919f1fbef",
+        "component": "artifact_de3d1099-17cd-4c5b-8628-13bfe9066013"
       }
     },
     "processor": {
       "plugin": "video-viewer",
       "version": "0.1.0",
-      "codeSha256": "e5a0514ef44752e79e5516586c5c3e8c6e23537e0e7d0417b5626ecabbcfeffe"
+      "codeSha256": "48c79a2412b73aec04c2a26c4fe83b0f617e6d99966f42c7edf941d49def2947"
     }
   },
   "parquet": {
@@ -39,26 +111,26 @@
       "title": "Parquet public summary",
       "description": "2 rows; label and value selected. Secret column excluded.",
       "artifacts": [
-        "artifact_6b58a855-4a40-495f-8ea8-43d385253efd"
+        "artifact_015bb96a-c145-4d0b-96a0-00e098fe27d4"
       ],
       "search": [
         {
           "text": "Harbor: 12",
-          "artifact": "artifact_6b58a855-4a40-495f-8ea8-43d385253efd"
+          "artifact": "artifact_015bb96a-c145-4d0b-96a0-00e098fe27d4"
         },
         {
           "text": "Forest: 34",
-          "artifact": "artifact_6b58a855-4a40-495f-8ea8-43d385253efd"
+          "artifact": "artifact_015bb96a-c145-4d0b-96a0-00e098fe27d4"
         }
       ],
       "presentation": {
-        "fallback": "artifact_6b58a855-4a40-495f-8ea8-43d385253efd"
+        "fallback": "artifact_015bb96a-c145-4d0b-96a0-00e098fe27d4"
       }
     },
     "processor": {
       "plugin": "parquet-summary",
       "version": "0.1.0",
-      "codeSha256": "bfce345f7a364b7d6c34514a575dbdefcf0909c8d6c4e99ece112cbf4b54ded2"
+      "codeSha256": "04814e3906d4214057a922548e37bf3acfb02a007e26e39c37367ce6dc3f5879"
     },
     "ranges": [
       {
