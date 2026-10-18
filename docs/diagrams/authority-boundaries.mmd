@@ -1,25 +1,18 @@
 flowchart TB
-  subgraph BACK[Processing boundary]
-    direction LR
-    subgraph HOST[Trusted host]
-      direction TB
-      A[Store batch → Input with inputId<br/>Choose one processor]
-      C[Input / run capabilities<br/>Assigned originals + staged writes]
-      V[Validate all; create items atomically<br/>Host IDs; invalid → no items]
-      S[Host-owned storage<br/>Explicit artifact set per item<br/>Shared references allowed]
-      A --> C
-      V --> S
-    end
-    subgraph WORKER[Untrusted Dynamic Worker]
-      P[Process assigned batch once<br/>Read originals · write derived bytes<br/>Return 1+ publication manifests<br/>No ambient network]
-    end
-    C -->|read / write / transcribe| P
-    P -->|1+ manifests| V
-  end
-  subgraph FRONT[Viewing boundary]
-    direction LR
-    U[Trusted host UI per item<br/>Search + readable fallback<br/>Broker checks item membership]
-    I[Optional iframe per item<br/>Reads its explicit artifact set<br/>Opaque origin + sandbox + CSP]
-    U <-->|MessagePort: artifact reads only| I
-  end
-  S --> U
+  U[Submitted URL] --> A[Untrusted URL acquisition worker<br/>Granted submitted-URL fetch<br/>Write staged originals only<br/>No existing reads or publication]
+  A <-->|fetch via explicit grant| N[Trusted network / service adapter<br/>Host enforces submitted URL scope]
+  A -->|staged bytes| H[Trusted host ingestion<br/>Assign IDs / hash / store bytes<br/>Complete Input atomically]
+  B[Files / folders / pasted text<br/>Browser capture with bytes] -->|bypass URL acquisition| H
+  H -->|Input: stored originals only| P[Untrusted artifact processor worker<br/>Scoped read / write / transcribe<br/>No fetch capability]
+  P -->|1+ manifests| V[Trusted host publication<br/>Validate all artifact memberships<br/>Atomically create items]
+  V --> S[Host storage + per-item artifact sets<br/>Explicit sharing allowed]
+  S --> UI[Trusted host UI per item<br/>Search + readable fallback<br/>Broker checks item membership]
+  UI <-->|MessagePort: artifact reads only| F[Optional untrusted iframe<br/>Opaque origin / sandbox / CSP]
+  W[Both extension workers<br/>Dynamic Workers; no ambient network<br/>Host owns permissions and storage]
+  style A fill:#ffe5c2,stroke:#c47820
+  style P fill:#ffe5c2,stroke:#c47820
+  style F fill:#ffe5c2,stroke:#c47820
+  style H fill:#dcecff,stroke:#4678b5
+  style N fill:#dcecff,stroke:#4678b5
+  style V fill:#dcecff,stroke:#4678b5
+  style W fill:#eeeeee,stroke:#888888

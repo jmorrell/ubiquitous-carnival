@@ -19,6 +19,22 @@ export interface Artifact {
 export interface Input { inputId: InputId; originals: readonly Artifact[] }
 /** A published item exposes only the artifacts explicitly selected by its publication. */
 export interface Item { itemId: ItemId; artifacts: readonly Artifact[] }
+/** URL acquisition has no access to existing artifacts or publication. */
+export interface AcquisitionHost {
+  /** Fetch grant required. Only the submitted URL is available through this capability. */
+  fetch(): Promise<Response>;
+  /** Staged original bytes; the host assigns identity and URL origin. */
+  write(meta: { mediaType: string }, body: ReadableStream<Uint8Array>): Promise<Artifact>;
+}
+/** Returns the selected staged artifacts; the host commits them as one complete Input. */
+export interface UrlAcquirer { acquire(url: string, host: AcquisitionHost): Promise<ArtifactId[]> }
+export interface UrlAcquirerRegistration {
+  id: string;
+  version: string;
+  /** Exact HTTP(S) origins used for host-owned handler selection. */
+  urlOrigins: readonly string[];
+  grants: readonly "fetch"[];
+}
 /** End is exclusive. */
 export interface ByteRange { start: number; end: number }
 /** Search text resolves to a published artifact, with no host-managed location identity. */
@@ -39,7 +55,7 @@ export interface ProcessingHost {
   /** Grant required. Provider configuration and credentials stay in the host. */
   transcribe(original: ArtifactId): Promise<TranscriptSegment[]>;
 }
-/** The single executable backend hook. Recognition is declarative and host-owned. */
+/** Artifact processing follows acquisition or direct ingestion. Recognition is host-owned. */
 export interface Processor { process(input: Input, host: ProcessingHost): Promise<Publication[]> }
 export interface ProcessorRegistration {
   id: string;

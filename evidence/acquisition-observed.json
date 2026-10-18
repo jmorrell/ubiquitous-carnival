@@ -1,0 +1,159 @@
+{
+  "observedAt": "2026-10-18T03:20:46.644Z",
+  "backend": "Miniflare 5 / workerd Dynamic Workers",
+  "acquisition": "URL-only submission → scoped fetch of local HTTP fixture → stored image artifact",
+  "fixture": {
+    "url": "http://127.0.0.1:52993/image.svg",
+    "requests": 1,
+    "bytes": 115
+  },
+  "acquired": {
+    "inputId": "input_1f750d75-9fa1-4b12-9273-c65806704587",
+    "originals": [
+      {
+        "id": "artifact_83fd32d7-b93b-4786-8d90-e173f928e88a",
+        "role": "original",
+        "mediaType": "image/svg+xml",
+        "origin": {
+          "kind": "url",
+          "url": "http://127.0.0.1:52993/image.svg"
+        },
+        "sha256": "a8ea801d6a338b9f75c09838aead926ee9f5ed2a0b12ad43747fa88cf2d11a35",
+        "size": 115
+      }
+    ]
+  },
+  "published": {
+    "item": {
+      "itemId": "item_4a097225-944d-4652-9e18-a334d550af5c",
+      "artifacts": [
+        {
+          "id": "artifact_74838ead-6c19-41b6-a69d-c6f9532bdc16",
+          "role": "gallery-manifest",
+          "mediaType": "application/json",
+          "origin": {
+            "kind": "none"
+          },
+          "sha256": "f5a67652943fe9c90f97382dbf550067a6abaa1d839fde726ef26f5d6ec5363f",
+          "size": 118
+        },
+        {
+          "id": "artifact_225c0a55-4bed-4ee5-93f0-e82767ecc708",
+          "role": "gallery-list",
+          "mediaType": "text/plain",
+          "origin": {
+            "kind": "none"
+          },
+          "sha256": "bf3bd97d54ae6c2a15f6032205e4c41e7ca5708d299bb53daa3cdb6ff43b02be",
+          "size": 32
+        },
+        {
+          "id": "artifact_83fd32d7-b93b-4786-8d90-e173f928e88a",
+          "role": "original",
+          "mediaType": "image/svg+xml",
+          "origin": {
+            "kind": "url",
+            "url": "http://127.0.0.1:52993/image.svg"
+          },
+          "sha256": "a8ea801d6a338b9f75c09838aead926ee9f5ed2a0b12ad43747fa88cf2d11a35",
+          "size": 115
+        }
+      ]
+    },
+    "publication": {
+      "title": "Image gallery",
+      "description": "1 original images in input order.",
+      "artifacts": [
+        "artifact_74838ead-6c19-41b6-a69d-c6f9532bdc16",
+        "artifact_225c0a55-4bed-4ee5-93f0-e82767ecc708",
+        "artifact_83fd32d7-b93b-4786-8d90-e173f928e88a"
+      ],
+      "search": [
+        {
+          "text": "http://127.0.0.1:52993/image.svg",
+          "artifact": "artifact_83fd32d7-b93b-4786-8d90-e173f928e88a"
+        }
+      ],
+      "presentation": {
+        "fallback": "artifact_225c0a55-4bed-4ee5-93f0-e82767ecc708"
+      }
+    }
+  },
+  "capture": {
+    "input": {
+      "inputId": "input_1a00981b-38af-4635-a02e-dbb1b90b8f02",
+      "originals": [
+        {
+          "id": "artifact_544d2532-e39a-4ee6-8493-8892b2b01ccc",
+          "role": "original",
+          "mediaType": "image/svg+xml",
+          "origin": {
+            "kind": "url",
+            "url": "http://127.0.0.1:52993/image.svg"
+          },
+          "sha256": "a8ea801d6a338b9f75c09838aead926ee9f5ed2a0b12ad43747fa88cf2d11a35",
+          "size": 115
+        }
+      ]
+    },
+    "publication": {
+      "item": {
+        "itemId": "item_ec00d85a-ecf5-42d8-94b5-ff2328cb0705",
+        "artifacts": [
+          {
+            "id": "artifact_9a06cf86-2c75-4967-aadd-0f61620fe7da",
+            "role": "gallery-manifest",
+            "mediaType": "application/json",
+            "origin": {
+              "kind": "none"
+            },
+            "sha256": "07cea6dd2f4d8a78f0abca74808ecf68cd1e22c165a575ce4809615037ff4a8a",
+            "size": 118
+          },
+          {
+            "id": "artifact_4ff054cd-0795-480c-be97-d4b308837c39",
+            "role": "gallery-list",
+            "mediaType": "text/plain",
+            "origin": {
+              "kind": "none"
+            },
+            "sha256": "bf3bd97d54ae6c2a15f6032205e4c41e7ca5708d299bb53daa3cdb6ff43b02be",
+            "size": 32
+          },
+          {
+            "id": "artifact_544d2532-e39a-4ee6-8493-8892b2b01ccc",
+            "role": "original",
+            "mediaType": "image/svg+xml",
+            "origin": {
+              "kind": "url",
+              "url": "http://127.0.0.1:52993/image.svg"
+            },
+            "sha256": "a8ea801d6a338b9f75c09838aead926ee9f5ed2a0b12ad43747fa88cf2d11a35",
+            "size": 115
+          }
+        ]
+      },
+      "publication": {
+        "title": "Image gallery",
+        "description": "1 original images in input order.",
+        "artifacts": [
+          "artifact_9a06cf86-2c75-4967-aadd-0f61620fe7da",
+          "artifact_4ff054cd-0795-480c-be97-d4b308837c39",
+          "artifact_544d2532-e39a-4ee6-8493-8892b2b01ccc"
+        ],
+        "search": [
+          {
+            "text": "http://127.0.0.1:52993/image.svg",
+            "artifact": "artifact_544d2532-e39a-4ee6-8493-8892b2b01ccc"
+          }
+        ],
+        "presentation": {
+          "fallback": "artifact_4ff054cd-0795-480c-be97-d4b308837c39"
+        }
+      }
+    },
+    "acquisitionRequests": 0,
+    "sameStoredBytes": true
+  },
+  "restartRetainedInputsAndResults": true
+}

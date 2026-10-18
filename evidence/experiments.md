@@ -1,9 +1,11 @@
 # Core questions and checks
 
-The experiment concentrates on processing one stored input into an atomic set of published items. These checks replace the broader lifecycle and editing experiments; the earlier implementation remains in Git history.
+The experiment separates URL acquisition into stored artifacts from artifact processing into published items. Direct browser captures and uploads bypass URL acquisition. These checks replace the broader lifecycle and editing experiments; the earlier implementation remains in Git history.
 
 | Question | Smallest experiment | What would disprove it? |
 | --- | --- | --- |
+| Can a URL extension acquire content without broad host authority? | Fetch an allowed local HTTP fixture through a submitted-URL capability; stage bytes and finish one input; attempt ungranted operations, invalid references, and failure/revocation. | Another URL or existing artifacts become accessible, an incomplete input appears, or acquisition authority survives completion/removal. |
+| Can capture bypass cloud acquisition? | Submit captured bytes with URL origin, then process them through the same gallery hook as acquired bytes. | URL provenance triggers fetching, or the processor needs a different input shape. |
 | Can a Dynamic Worker process one assigned input without ambient authority? | Load real plugin JavaScript in local workerd; grant scoped artifact/service operations; attempt foreign reads, secret access, and ambient HTTP/TCP. | Unauthorized bytes, credentials, or network access; failure to enforce capability revocation. |
 | Can a processor return multiple searchable items without exposing partial output? | Produce several manifests; make a later manifest invalid or fail the metadata commit; publish a valid set and reopen the store. | Any partial item/search entry appears, rollback deletes an existing shared blob, or result IDs/completion state fail to persist. |
 | Does each resulting item expose only its selected artifacts? | Split an image batch into photo items with distinct originals/captions and shared metadata; inspect contexts and attempt sibling reads through storage, HTTP, and the browser broker. | Sibling-only descriptors or bytes leak; intentional sharing fails; search points outside its item's artifact set. |

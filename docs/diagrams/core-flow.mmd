@@ -1,18 +1,16 @@
 flowchart TB
-  subgraph HOST[Trusted host]
-    direction TB
-    A[Ingestion APIs<br/>URL capture · file or folder<br/>Async large-file upload<br/>Transport not specified] --> B[Store all originals<br/>Wait for completion<br/>Choose one processor]
-    B --> I[Input: inputId + originals array<br/>Each artifact: stored details<br/>+ origin: none / URL / file path]
-  end
-  subgraph PLUGIN[Untrusted processor]
-    direction LR
-    C[Process batch once<br/>Scoped read · write · transcribe] --> D[Return 1+ manifests<br/>Explicit artifact sets + metadata]
-  end
-  I --> C
-  subgraph SAVE[Trusted host owns publication]
-    direction LR
-    E{Validate ALL manifests<br/>References + item membership} -->|valid| F[Atomically create items<br/>Host assigns each item ID<br/>Mark input processed]
-    E -->|invalid / failed| X[No published items]
-    F --> G[Per-item search + fallback<br/>Optional isolated viewer<br/>Only explicit artifact set]
-  end
-  D --> E
+  U[URL only] --> A[URL acquisition extension<br/>Selected for submitted URL<br/>Granted fetch + staged writes]
+  A --> H[Host completes ingestion atomically<br/>All original bytes stored<br/>Acquisition failure: no Input]
+  B[Uploaded files / folders<br/>Pasted text / browser capture<br/>Already downloaded bytes] -->|direct ingestion: bypass acquisition| H
+  H --> I[Input: inputId + originals array<br/>Every artifact has stored bytes<br/>Origin: none / URL / file path]
+  I --> P[Artifact processor<br/>Process assigned batch once<br/>Scoped read / write / transcribe]
+  P --> M[Return 1+ publication manifests<br/>Each selects its own artifact set]
+  M --> V[Host validates ALL manifests]
+  V -->|valid| S[Create items atomically<br/>Host assigns each item ID<br/>Mark Input processed]
+  V -->|invalid / processing failure| X[No published items]
+  S --> R[Per-item search + readable fallback<br/>Optional isolated component<br/>Read only explicit artifact set]
+  style A fill:#ffe5c2,stroke:#c47820
+  style P fill:#ffe5c2,stroke:#c47820
+  style H fill:#dcecff,stroke:#4678b5
+  style I fill:#dcecff,stroke:#4678b5
+  style S fill:#dcecff,stroke:#4678b5

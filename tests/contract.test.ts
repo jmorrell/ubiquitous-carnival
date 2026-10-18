@@ -48,7 +48,7 @@ describe('one processing call and validated publication results', () => {
     expect(reloaded.context(published.item.itemId)).toEqual(published);
     expect(await new Response(reloaded.visibleArtifact(published.item.itemId, publication.presentation.fallback).body).text()).toContain('A blue square');
     const saved = JSON.parse(await readFile(join(directory, 'metadata.json'), 'utf8'));
-    expect(Object.keys(saved).sort()).toEqual(['artifacts', 'inputs', 'items', 'plugins', 'processed', 'publications', 'schemaVersion']);
+    expect(Object.keys(saved).sort()).toEqual(['acquirers', 'artifacts', 'inputs', 'items', 'plugins', 'processed', 'publications', 'schemaVersion']);
   });
   it('discards failed work and retains only the original, with no automatic retry', async () => {
     let calls = 0; const { store, input, directory } = await setup(async () => { calls++; throw new Error('synthetic service failure'); });
