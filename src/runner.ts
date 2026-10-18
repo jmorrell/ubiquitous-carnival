@@ -16,10 +16,10 @@ export async function createRunner(store: FileStore) {
   const runtime = await createDynamicRuntime(request => store.capabilityFetch(request));
   const compiled = new Map<string, string>();
   return {
-    async process(itemId: string, plugin: 'video-notes' | 'parquet-summary') {
+    async process(itemId: string, plugin: 'video-viewer' | 'parquet-summary') {
       let source = compiled.get(plugin);
       if (!source) {
-        const entry = fileURLToPath(new URL(plugin === 'video-notes' ? '../plugins/video-worker.ts' : '../plugins/parquet-worker.ts', import.meta.url));
+        const entry = fileURLToPath(new URL(plugin === 'video-viewer' ? '../plugins/video-worker.ts' : '../plugins/parquet-worker.ts', import.meta.url));
         const result = await build({ entryPoints: [entry], bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022', external: ['cloudflare:workers'], loader: { '.html': 'text' } });
         source = result.outputFiles[0].text; compiled.set(plugin, source);
       }

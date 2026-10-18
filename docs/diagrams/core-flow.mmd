@@ -1,0 +1,17 @@
+flowchart TB
+  subgraph HOST[Trusted host]
+    direction LR
+    A[1. Ingest original] --> B[2. Choose processor]
+  end
+  subgraph PLUGIN[Untrusted processor]
+    direction LR
+    C[3. Process<br/>Scoped read · write · transcribe] --> D[4. Return manifest<br/>Artifact references + metadata]
+  end
+  B --> C
+  subgraph SAVE[Trusted host owns publication]
+    direction LR
+    E{5. Validate result} -->|valid| F[Save one publication]
+    E -->|invalid / failed| X[No published result]
+  end
+  D --> E
+  F --> G[6. Search + readable fallback<br/>Optional isolated viewer]

@@ -1,5 +1,5 @@
 import { parquetMetadataAsync, parquetReadObjects } from 'hyparquet';
-import type { Processor, ProcessorRegistration, TargetDraft } from '../src/contract';
+import type { Processor, ProcessorRegistration } from '../src/contract';
 export const parquetRegistration: ProcessorRegistration = { id: 'parquet-summary', version: '0.1.0', accepts: ['application/vnd.apache.parquet'], grants: [] };
 export const parquetProcessor: Processor = {
   async process(input, host) {
@@ -11,8 +11,6 @@ export const parquetProcessor: Processor = {
     const rows = await parquetReadObjects({ file, metadata, columns: ['label', 'value'] });
     const lines = rows.map(row => `${row.label}: ${row.value}`); const text = lines.join('\n');
     const fallback = await host.write({ role: 'table-summary', mediaType: 'text/plain' }, new Blob([text]).stream());
-    const targets: TargetDraft[] = []; let offset = 0;
-    lines.forEach((line, i) => { targets.push({ key: `row-${i}`, artifact: fallback.id, selector: { kind: 'text', start: offset, end: offset + line.length, quote: line } }); offset += line.length + 1; });
-    return { title: 'Parquet public summary', description: `${rows.length} rows; label and value selected. Secret column excluded.`, artifacts: [fallback.id], targets, search: lines.map((text, i) => ({ text, target: `row-${i}` })), presentation: { fallback: fallback.id } };
+    return { title: 'Parquet public summary', description: `${rows.length} rows; label and value selected. Secret column excluded.`, artifacts: [fallback.id], search: lines.map(text => ({ text, artifact: fallback.id })), presentation: { fallback: fallback.id } };
   },
 };

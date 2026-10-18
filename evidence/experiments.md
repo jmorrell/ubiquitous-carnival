@@ -1,11 +1,13 @@
-# Questions recorded before implementation
+# Core questions and checks
 
-Video is the first slice; Parquet is the second. CAD is withheld until the initial contract is implemented. All processing fixtures will be explicitly synthetic. No production access is assumed.
+The experiment now concentrates on one published result per item. These checks replace the broader lifecycle and editing experiments; the earlier implementation remains in Git history.
 
-| Architectural uncertainty | Smallest experiment | Observation that disproves the proposal |
+| Question | Smallest experiment | What would disprove it? |
 | --- | --- | --- |
-| A Dynamic Worker can operate on one assigned item without ambient authority. | Load actual plugin JavaScript in local workerd, grant scoped artifact and service capabilities, and attempt foreign reads, writes, raw network access, and secret access. | Any unauthorized bytes, secret, or successful ambient network request; inability to enforce revocation at the host. |
-| Immutable artifacts plus an atomic published generation can preserve durable user data through retries and reprocessing. | A synthetic video yields a transcript and thumbnail; inject failure after a paid-service result and before publication; retry; reprocess with changed transcription; remove plugin. | Partial results become searchable, an acknowledged paid result is bought twice, a stale target silently moves, or removal destroys original/note data. |
-| A small view boundary can support domain interaction without trusting frontend code. | Compare a fixed transcript template with an opaque-origin iframe implementing transcript/playback synchronization; broker artifact reads and explicit annotation proposals; attack parent DOM and messages. | Required interaction needs access to parent DOM/credentials, or another frame/forged target can invoke a host action. |
+| Can a Dynamic Worker process one assigned item without ambient authority? | Load real plugin JavaScript in local workerd; grant scoped artifact/service operations; attempt foreign reads, secret access, and ambient HTTP/TCP. | Unauthorized bytes, credentials, or network access; failure to enforce capability revocation. |
+| Can a processor publish one complete searchable result without exposing incomplete output? | Produce a video manifest and derivatives; inject invalid references and processing/storage failures; publish a valid result and reopen the store. | Partial output becomes readable/searchable, foreign artifacts become visible, publication replaces an existing result, or a successful result fails to persist. |
+| Can a read-only browser boundary support useful domain interaction? | An opaque-origin iframe reads archived media and transcript JSON, seeks/plays the video, and attempts parent/foreign-artifact access, channel spoofing, and egress. | Interaction requires host DOM/session access or an unauthorized operation succeeds. |
 
-The second scenario tests a real Parquet file with bounded range reads and deliberately selected search text, using the same processing contract. It does not promise a full DuckDB integration. The CAD challenge will be documented only after this contract settles; any new requirement will be recorded rather than silently added.
+A second processor parses a real Parquet fixture through selected byte ranges and emits a readable summary with deliberately selected search text. It uses the same contract and no transcription grant. Its tests assert which bytes were read, rather than merely checking that a range-shaped API was called.
+
+There is no CAD locator challenge in this scope. The video component owns cue timing internally; the host search contract returns artifact references rather than universal locations.

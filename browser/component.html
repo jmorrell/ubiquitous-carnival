@@ -5,57 +5,42 @@ body{font:14px system-ui,sans-serif;margin:0;color:#20372d}
 video{display:block;background:#223b34;width:100%;max-height:210px;border-radius:6px}
 button{display:block;border:1px solid #c9d9cf;border-radius:5px;background:#f7fbf8;color:#173c2d;padding:8px 10px;margin:7px 0;text-align:left;cursor:pointer}
 button[aria-current="true"]{background:#d4ecdf;border-color:#4b8162}
-textarea{width:90%;height:40px;margin-top:10px;font:inherit}
 output{display:block;font-variant-numeric:tabular-nums;margin:7px 0}
 </style></head>
 <body>
 <video controls playsinline muted aria-label="Archived video"></video>
 <output id="time">0.00 seconds</output>
 <div id="cues"></div>
-<label for="note">Note</label><textarea id="note">A useful moment to revisit.</textarea>
-<button id="propose" disabled>Propose note at selected cue</button>
 <p id="message" role="status">Loading…</p>
 <script>
 (() => {
+  const transcriptArtifact = __MAGPIE_TRANSCRIPT_ARTIFACT__;
   let port;
   let serial = 0;
-  let context;
-  let targets = [];
-  let selected = 0;
+  let segments = [];
   const pending = new Map();
   const video = document.querySelector("video");
-  function request(method, fields) {
+  function read(artifact, range) {
     return new Promise((resolve, reject) => {
       const id = String(++serial);
       pending.set(id, { resolve, reject });
-      port.postMessage({ id, method, ...fields });
+      port.postMessage({ id, method: "read", artifact, range });
     });
   }
   // This is the complete viewer-facing capability surface.
-  window.magpie = Object.freeze({
-    read: (artifact, range) => request("read", { artifact, range }),
-    proposeAnnotation: (target, body) => request("proposeAnnotation", { target, body }),
-  });
+  window.magpie = Object.freeze({ read });
   function update() {
     document.querySelector("#time").textContent = video.currentTime.toFixed(2) + " seconds";
     [...document.querySelectorAll("#cues button")].forEach((button, i) => {
-      const target = targets[i];
-      button.setAttribute("aria-current", String(video.currentTime * 1000 >= target.selector.startMs && video.currentTime * 1000 < target.selector.endMs));
+      const segment = segments[i];
+      button.setAttribute("aria-current", String(video.currentTime * 1000 >= segment.startMs && video.currentTime * 1000 < segment.endMs));
     });
   }
   video.addEventListener("timeupdate", update);
-  document.querySelector("#propose").onclick = async () => {
-    try {
-      await window.magpie.proposeAnnotation(targets[selected].id, document.querySelector("#note").value);
-      document.querySelector("#message").textContent = "Confirm the note in Magpie.";
-    } catch (error) {
-      document.querySelector("#message").textContent = error.message;
-    }
-  };
   window.addEventListener("message", async (event) => {
     if (port || event.source !== parent || event.data?.type !== "magpie:init" || event.ports.length !== 1) return;
     port = event.ports[0];
-    context = event.data.context;
+    const context = event.data.context;
     port.onmessage = ({ data }) => {
       const waiting = pending.get(data.id);
       if (!waiting) return;
@@ -65,28 +50,24 @@ output{display:block;font-variant-numeric:tabular-nums;margin:7px 0}
     try {
       const original = context.item.originals.find((a) => a.mediaType.startsWith("video/"));
       if (!original) throw new Error("No video original");
-      targets = context.generation.targets.filter((t) => t.artifact === original.id && t.selector.kind === "time").sort((a, b) => a.selector.startMs - b.selector.startMs);
-      const media = await window.magpie.read(original.id);
+      const transcript = await read(transcriptArtifact);
+      segments = JSON.parse(new TextDecoder().decode(transcript.bytes)).segments;
+      const media = await read(original.id);
       const loaded = new Promise((resolve, reject) => {
         video.addEventListener("loadedmetadata", resolve, { once: true });
         video.addEventListener("error", () => reject(new Error("Archived video could not load")), { once: true });
       });
       video.src = URL.createObjectURL(new Blob([media.bytes], { type: media.mediaType }));
       await loaded;
-      const fallback = await window.magpie.read(context.generation.publication.presentation.fallback);
-      const lines = new TextDecoder().decode(fallback.bytes).split("\n").filter(Boolean);
-      targets.forEach((target, i) => {
+      segments.forEach((segment) => {
         const button = document.createElement("button");
-        button.textContent = (target.selector.startMs / 1000).toFixed(1) + "s · " + (lines[i] ?? target.key);
-        button.dataset.target = target.id;
+        button.textContent = (segment.startMs / 1000).toFixed(1) + "s · " + segment.text;
         button.onclick = () => {
-          selected = i;
-          video.currentTime = target.selector.startMs / 1000;
+          video.currentTime = segment.startMs / 1000;
           update();
         };
         document.querySelector("#cues").append(button);
       });
-      document.querySelector("#propose").disabled = false;
       document.querySelector("#message").textContent = "Ready";
     } catch (error) {
       document.querySelector("#message").textContent = error.message;

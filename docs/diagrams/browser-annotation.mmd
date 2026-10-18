@@ -1,8 +1,0 @@
-flowchart TB
-  ready["1 · Iframe announces ready"] --> check["2 · Host checks exact frame<br/>+ opaque origin"]
-  check --> channel["3 · Host transfers port<br/>+ item/generation context<br/>Existing notes stay in host"]
-  channel --> read["4 · Scoped read request<br/>Host checks membership;<br/>returns bytes"]
-  read --> proposal["5 · Iframe proposes note<br/>Host validates target/body;<br/>holds one proposal"]
-  proposal --> display["6 · Host displays proposal"]
-  display --> confirm["7 · User confirms<br/>displayed proposal"]
-  confirm --> save["8 · Host saves user note<br/>Iframe has no writer"]

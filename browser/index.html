@@ -12,11 +12,8 @@
     .panels{display:grid;grid-template-columns:1fr 1.3fr;gap:20px}
     section{background:white;border:1px solid #d4dedb;border-radius:10px;padding:20px}
     pre{white-space:pre-wrap;font:inherit;line-height:1.7}
-    iframe{width:100%;height:430px;border:0}
-    button{background:#275d50;color:white;border:0;border-radius:6px;padding:9px 15px;cursor:pointer}
-    button:disabled{opacity:.45}
-    .muted{color:#64736c}.note{white-space:pre-wrap}
-    #proposal[hidden]{display:none}
+    iframe{width:100%;height:350px;border:0}
+    .muted{color:#64736c}
     @media(max-width:700px){.panels{grid-template-columns:1fr}}
   </style>
   <script src="/host.js" defer></script>
@@ -28,10 +25,6 @@
     <section><h2>Readable content</h2><p class="muted">Fixed host template</p><pre id="fallback"></pre></section>
     <section><h2>Interactive viewer</h2><div id="viewer"></div></section>
   </div>
-  <section id="proposal" hidden style="margin-top:20px">
-    <h2>Save this note?</h2><p class="note" id="proposal-body"></p>
-    <button id="confirm">Save note</button> <button id="cancel">Cancel</button>
-  </section>
-  <section style="margin-top:20px"><h2>Your notes</h2><ul id="annotations"></ul><p id="status" role="status"></p></section>
+  <p id="status" role="status"></p>
 </body>
 </html>

@@ -1,23 +1,25 @@
-flowchart LR
-  subgraph host["TRUSTED HOST"]
-    direction TB
-    intake["Registration + intake<br/>archive original; select processor"]
-    bridge["Scoped bridge<br/>run + item + epoch + quotas"]
-    publish["Validate candidate publication<br/>atomic visibility change"]
-    data["Host-managed originals, history,<br/>current publication, targets, notes"]
-    intake --> bridge
-    publish --> data
+flowchart TB
+  subgraph BACK[Processing boundary]
+    direction LR
+    subgraph HOST[Trusted host]
+      direction TB
+      A[Archive original<br/>Choose processor]
+      C[Scoped capabilities<br/>read · write · transcribe]
+      V[Validate manifest<br/>Save one publication]
+      S[Host-owned storage<br/>Originals + artifact refs<br/>Selected search text]
+      A --> C
+      V --> S
+    end
+    subgraph WORKER[Untrusted Dynamic Worker]
+      P[process input + host<br/>Creates bytes via capabilities<br/>No ambient network]
+    end
+    C -->|capability calls| P
+    P -->|references + metadata| V
   end
-  subgraph worker["BOUNDARY 1 — untrusted Dynamic Worker"]
-    processor["process(input, host)<br/>read · write · transcribe<br/>no ambient HTTP / TCP"]
+  subgraph FRONT[Viewing boundary]
+    direction LR
+    U[Trusted host UI<br/>Search + readable fallback<br/>Scoped artifact broker]
+    I[Optional untrusted iframe<br/>Opaque origin + sandbox + CSP]
+    U <-->|MessagePort: artifact reads only| I
   end
-  bridge -->|"capability"| processor
-  processor -->|"candidate manifest"| publish
-  subgraph trustedui["TRUSTED HOST UI"]
-    ui["Scoped reads + validated proposals<br/>display note; user confirms to save"]
-  end
-  subgraph component["BOUNDARY 2 — optional untrusted iframe"]
-    viewer["Opaque origin · sandbox · CSP<br/>item/generation context; no notes<br/>read / proposeAnnotation only"]
-  end
-  ui <-->|"MessagePort"| viewer
-  data <--> ui
+  S --> U

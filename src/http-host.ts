@@ -9,6 +9,6 @@ export function httpHost(binding: Fetcher): ProcessingHost {
   return {
     read: async (artifact, range) => (await call(`/read/${encodeURIComponent(artifact)}${range ? `?start=${range.start}&end=${range.end}` : ''}`)).body!,
     write: async (meta, body) => (await call('/write', { method: 'PUT', headers: { 'x-role': meta.role, 'content-type': meta.mediaType }, body, duplex: 'half' } as RequestInit)).json(),
-    transcribe: async (original, profile) => (await call('/transcribe', { method: 'POST', body: JSON.stringify({ original, profile }) })).json(),
+    transcribe: async original => (await call('/transcribe', { method: 'POST', body: JSON.stringify({ original }) })).json(),
   };
 }

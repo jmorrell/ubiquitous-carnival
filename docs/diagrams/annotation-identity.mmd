@@ -1,8 +1,0 @@
-flowchart LR
-  subgraph media["ORIGINAL MEDIA · note can stay current"]
-    cue1["Original A · cue<br/>Generation 1"] -->|"same identity"| cue2["Same target in Generation 2<br/>Note stays current"]
-  end
-  subgraph text["GENERATED TEXT · note keeps its revision"]
-    text1["Transcript T1<br/>Generation 1"] -->|"regenerate transcript"| text2["New transcript T2<br/>New target"]
-    text1 --> note["Note stays on retained T1<br/>Marked historical"]
-  end

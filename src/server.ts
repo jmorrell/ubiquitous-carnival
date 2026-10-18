@@ -9,7 +9,7 @@ import { videoRegistration } from '../plugins/video';
 import { parquetRegistration } from '../plugins/parquet';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const store = await FileStore.open(process.env.DEMO_STORE ?? root + '.demo-store');
+const store = await FileStore.open(process.env.DEMO_STORE ?? root + '.demo-store-core');
 await store.install(videoRegistration); await store.install(parquetRegistration);
 let items = store.items();
 if (!items.some(item => item.originals[0].mediaType === 'video/webm')) {
@@ -18,7 +18,7 @@ if (!items.some(item => item.originals[0].mediaType === 'video/webm')) {
   items = store.items();
 }
 const runner = await createRunner(store);
-for (const item of items) if (!item.activeGeneration) await runner.process(item.itemId, item.originals[0].mediaType === 'video/webm' ? 'video-notes' : 'parquet-summary');
+for (const item of items) if (!store.isPublished(item.itemId)) await runner.process(item.itemId, item.originals[0].mediaType === 'video/webm' ? 'video-viewer' : 'parquet-summary');
 const videoId = items.find(item => item.originals[0].mediaType === 'video/webm')!.itemId;
 const parquetId = items.find(item => item.originals[0].mediaType === 'application/vnd.apache.parquet')!.itemId;
 const server = createServer(async (request, response) => {
@@ -50,12 +50,6 @@ const server = createServer(async (request, response) => {
       // Fetching bytes remains allowed; navigating to an artifact never grants host-origin script authority.
       response.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
       Readable.fromWeb(body as any).pipe(response); return;
-    }
-    if (request.method === 'POST' && url.pathname === '/api/annotations') {
-      if (request.headers['x-host-action'] !== 'demo-confirmed') { response.statusCode = 403; response.end('host confirmation required'); return; }
-      let text = ''; for await (const chunk of request) { text += chunk; if (text.length > 10000) throw new Error('request too large'); }
-      const { target, body } = JSON.parse(text); const result = await store.annotate(itemId, target, body);
-      response.setHeader('Content-Type', 'application/json'); response.end(JSON.stringify(result)); return;
     }
     response.statusCode = 404; response.end('not found');
   } catch (error) { response.statusCode = 403; response.end(String(error)); }

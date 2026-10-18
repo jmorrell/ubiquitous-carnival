@@ -1,58 +1,45 @@
-# Browser boundary: observed results
+# Browser boundary: a read-only component
 
-On 2026-10-17, the three Playwright tests in `tests/browser.spec.ts` passed against the local demo server using the actual Dynamic Worker runner: **3 passed in 3.5 seconds**. No external service or production data was used. Chromium/local workerd required the approved execution environment outside the macOS process/network sandbox; the earlier sandbox launch failures were environment failures, not evidence for isolation.
+The host displays a readable fallback and optionally loads component HTML into an opaque-origin iframe. The component receives `{ item, publication }` and one capability: `read(artifact, range?)`. The [boundary diagram](../docs/diagrams/authority-boundaries.png) shows how this differs from backend processing authority.
 
-Run from the repository root:
+## Video interaction
+
+The video processor writes transcript JSON and embeds its artifact ID in its component HTML. The component reads that JSON and the original video through the broker, then uses transcript timestamps to seek an actual `HTMLVideoElement` and follow playback. Cue interpretation is private to the processor/component pair. No target registry or generic host action is needed.
+
+The host's fixed text view remains readable without synchronization controls. The same host displays the Parquet summary at `/?item=parquet` without loading any component.
+
+## Checks
+
+On 18 October 2026 (UTC), all **3 Playwright tests passed in 4.3 seconds** using cached Chromium **153.0.8010.12**. They exercise:
+
+1. Actual media seeking, playback, and time display, plus the generic Parquet fallback.
+2. Denied parent DOM access, a real foreign item's artifact read, a hostile sibling frame racing the ready handshake, and unsupported broker methods.
+3. CSP denial of direct fetch and cross-origin frame navigation, with zero requests reaching the test's egress canary.
+
+The tests use the actual iframe, DOM, media element, and Dynamic Worker processing path. Transcription is controlled synthetic data. Each test run starts a fresh temporary store; it does not reuse stale component output.
+
+## Enforcement and limits
+
+- The host checks the ready message's exact `contentWindow` and opaque `origin === "null"`, then transfers a fresh MessagePort once. This identifies the intended frame; it is not user authentication.
+- The broker accepts only reads and checks the artifact against the item's originals and publication. There is no mutation route in the component protocol or demo API.
+- `sandbox="allow-scripts"` grants no same-origin, popup, top-navigation, or form permission. Parent/child CSP constrains fetches, frame navigation, workers, objects, and forms. Blob media and inline component scripts/styles are explicitly allowed.
+- Every raw artifact response also carries a CSP sandbox, including active MIME types with parameters. Fetching bytes does not give the artifact host-origin script authority.
+- Blocking a cross-origin navigation replaces the iframe with a browser error document. The host closes the old channel after navigation; the readable fallback survives.
+- Media is buffered into an ArrayBuffer and Blob. Tiny-fixture playback is not a large-file streaming or memory result. Workers and WebAssembly compilation are not granted; full DuckDB/CAD viewers remain untested.
+- Removing a processor prevents future component loads, but does not immediately terminate an already-loaded iframe or retract transferred bytes. This demo is a loopback server with no production authentication. The tests are specific attacks, not a complete browser security audit.
+
+The initial video experiment revealed that `media-src blob:` was needed in both parent and child CSP. The current policy retains that correction. A host video widget could implement the same interaction; this experiment tests the optional isolated-code approach.
+
+## Reproduce
 
 ```sh
 npm run test:browser
 npm run demo
-# Open http://127.0.0.1:4173/ or http://127.0.0.1:4173/?item=parquet
+# http://127.0.0.1:4173/ or http://127.0.0.1:4173/?item=parquet
 ```
 
-The test configuration starts its own server with a fresh temporary persistent store. It does not reuse a running demo or stale component artifact. Playwright is 1.64.1; its default expected Chromium cache was unavailable. The configuration used existing cached Chromium build 1243, **Chrome for Testing 153.0.8010.12**, without downloading anything. `PLAYWRIGHT_CHROMIUM_EXECUTABLE` can select another executable. This is evidence for that browser/version, not all browsers.
+The configuration uses `PLAYWRIGHT_CHROMIUM_EXECUTABLE` when set, otherwise a cached macOS Chromium. It requires permission to open local listeners and launch the browser. See the main report for the latest validation result.
 
-## How a proposal becomes a note
+`fixtures/video.webm` is a synthetic six-second, 160×90, 10 fps VP8 gradient with no audio. The transcript is independently authored, not extracted speech. `node browser/make-video-fixture.mjs` regenerates the fixture using macOS `sips` and cached Playwright ffmpeg (`FFMPEG` can override its path); ordinary tests use the committed WebM.
 
-![The host checks the iframe’s ready message before transferring a MessagePort and limited context. The iframe requests scoped bytes, then proposes a note. The host displays the proposal and persists it only after a trusted user click.](../docs/diagrams/browser-annotation.png)
-
-The handshake checks the expected frame's window and opaque origin; it does not authenticate a user. After that, the broker accepts only artifact reads and note proposals on the transferred port. It validates each artifact or target, keeps a pending proposal fixed while the user reviews it, and renders existing notes outside the iframe. A successful proposal response means **pending host confirmation**, not saved. The demo's action header is a fixture guard, not production authentication. [Editable diagram and sources](../docs/diagrams/README.md).
-
-## What passed
-
-1. **Actual media interaction and a user-owned note.** Clicking the second transcript cue sets an actual `HTMLVideoElement.currentTime`; playing the local WebM advances playback and updates the component's time display. A note proposal alone creates no annotation. An explicit trusted host button click persists the note against the selected original-media time target. The component cannot replace the displayed proposal while confirmation is pending. The fixed host transcript has readable text but no synchronization controls. The same generic host displays the Parquet summary at `/?item=parquet` with no component.
-2. **Separate browser authority.** The opaque sandbox cannot access `parent.document`, read a real original artifact belonging to the other Parquet item, or propose a forged target. A hostile sibling opaque frame races the legitimate ready handshake and receives no MessagePort; its direct action-shaped `postMessage` creates no proposal. A direct annotation POST without the fixture host-action header is rejected. For this one test only, the legitimate component's ready message is delayed by 500 ms through a local response override so the race is exercised; the browser sandbox and channel are real.
-3. **Tested egress attempts.** The component's direct fetch and self-navigation to a different loopback origin are blocked. A Playwright route canary records zero attempted requests to that origin, preventing actual network traffic even if the boundary regresses. Chromium replaces a CSP-blocked iframe navigation with an error document; it does not preserve the old component document. The host's readable content remains available. The host closes its channel after frame navigation.
-
-The three tests exercise behavior rather than substituting a fake iframe, DOM, media element, or Worker. The transcript/provider response is deliberately controlled and synthetic.
-
-## Evidence that changed the implementation
-
-The first real run could not load the video: allowing `media-src blob:` only in the child CSP was insufficient because the parent's inherited `default-src 'self'` also applied. Adding explicit `media-src blob:` to the parent fixed playback. This falsified an initially incomplete CSP assumption. A second run showed that blocked navigation produces a browser error document, so the test was corrected to check the security consequence—no canary request and an intact host—rather than an invented document-lifecycle behavior.
-
-The Parquet presentation check removed video-specific host labels and propagated the item's query through the generic API calls. It required no new viewer hook or host interpretation of Parquet rows. Cue-to-transcript ordering remains private to the video processor/component pair; the host does not know it.
-
-## Enforced boundary and limits
-
-- The host creates an `iframe sandbox="allow-scripts"` without same-origin, popup, top-navigation or form permissions. Its CSP constrains frame navigation; the child CSP denies connections, nested frames, workers, objects and forms. Blob media and inline component code/styles are the narrowly enabled resources.
-- The host accepts ready only from that frame's `contentWindow` with opaque `origin === "null"`, then transfers a fresh MessagePort. The child receives item and generation information, not existing annotations, credentials, bucket bindings, authenticated URLs or the host DOM.
-- The host validates artifact membership and target identity on every broker request. It reads bytes itself and transfers the result. The component may propose a note; the host owns confirmation and persistence. Existing notes are rendered by the host, including an earlier-processing-revision label when applicable.
-- The local demo's `x-host-action: demo-confirmed` header is a fixture guard, **not real authentication or a secret**. A general client can set it. The production boundary would need the existing authenticated user/tenant API, appropriate CSRF handling, and host-controlled actions. The demonstrated plugin cannot send that request directly because its browser network access is denied.
-- This is not a complete browser security audit or an availability guarantee. Only the listed attacks were exercised. Same-origin navigation is allowed by the parent's frame policy, but remains opaque and sandboxed; not every browser exfiltration/side-channel mechanism was tested. Component removal prevents future component reads but does not immediately terminate an already-loaded iframe; reload closes that gap in this demo.
-- Media is read wholly into an ArrayBuffer and Blob. These tiny fixtures establish no large-file, stream-backpressure, range-playback or memory claim. The backend Parquet experiment separately exercises selective object reads.
-- Current CSP denies workers and WebAssembly compilation. Full DuckDB-Wasm, CAD/WebGL viewers, GPU/resource limits, and browser-code upgrade compatibility remain untested. Supporting those may require additional expressly tested capabilities.
-- A purpose-built host video template could implement the same synchronization. This experiment establishes that optional isolated component code can support it under the tested constraints; it does not prove arbitrary code is necessary for every video or that fixed templates cannot work.
-
-## Fixture provenance and screenshots
-
-`fixtures/video.webm` is a synthetic six-second, 160×90, 10 fps VP8 gradient with no audio. The transcript is independently authored fixture data, not an observed transcription of the image. The file can be regenerated offline on this macOS environment with:
-
-```sh
-node browser/make-video-fixture.mjs
-```
-
-The generator uses `/usr/bin/sips` to encode one synthetic JPEG and the cached Playwright ffmpeg to encode 60 frames. `FFMPEG` can override the ffmpeg path. The checked-in WebM means ordinary test runs do not need either generator tool.
-
-Desktop screenshots were captured and visually inspected from a fresh store with the actual Dynamic Worker processing path, cached Chromium and synthetic fixtures: [video with confirmed note](browser-video.png), [Parquet fallback](browser-parquet.png). They demonstrate presentation, not real service output or a mobile visual audit.
-
-Final root verification after making every raw artifact response inert with a CSP sandbox: the same three browser tests passed again in 3.4 seconds. This serving policy also covers active MIME types with parameters; direct artifact navigation never intentionally grants host-origin script execution. No claim of a complete MIME/browser audit is added.
+Screenshots of the current demo: [video viewer](browser-video.png) and [Parquet fallback](browser-parquet.png). They demonstrate presentation, not real transcription or a mobile visual audit.
