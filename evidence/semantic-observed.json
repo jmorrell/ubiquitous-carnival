@@ -1,0 +1,243 @@
+{
+  "observedAt": "2026-10-18T00:42:29.358Z",
+  "backend": "Miniflare 5 / workerd Dynamic Workers",
+  "video": {
+    "generation": {
+      "id": "generation_3fb39a50-2551-4ed1-b0f4-f5546b450c6a",
+      "itemId": "item_a33f8d45-aa2b-4742-a109-bafeb59eab83",
+      "plugin": "video-notes",
+      "version": "0.1.0",
+      "state": "published",
+      "codeSha256": "6beeb20531448a69c4b7b5ec75a3038db4776f372eb7b8a260a8edb0ecd99993",
+      "epoch": "epoch_70a520f8-b32a-4daf-9b00-592daca26cd6",
+      "publication": {
+        "title": "Synthetic video: blue and green",
+        "description": "Controlled transcript fixture; no real transcription provider.",
+        "artifacts": [
+          "artifact_236c43c0-74b0-4be6-adeb-9791ba9c8d81",
+          "artifact_069f38fc-deb0-40cd-a93c-e9bb4a967454",
+          "artifact_0331280b-f472-4843-9764-eb1832f653a4",
+          "artifact_95edbb84-6e98-442f-9ca3-d997d035ac1a"
+        ],
+        "targets": [
+          {
+            "key": "cue-0",
+            "artifact": "artifact_4bbe855d-58f7-47fe-ad02-37fe1f2caa6c",
+            "selector": {
+              "kind": "time",
+              "startMs": 0,
+              "endMs": 900
+            }
+          },
+          {
+            "key": "text-0",
+            "artifact": "artifact_069f38fc-deb0-40cd-a93c-e9bb4a967454",
+            "selector": {
+              "kind": "text",
+              "start": 0,
+              "end": 22,
+              "quote": "A blue square appears."
+            }
+          },
+          {
+            "key": "cue-1",
+            "artifact": "artifact_4bbe855d-58f7-47fe-ad02-37fe1f2caa6c",
+            "selector": {
+              "kind": "time",
+              "startMs": 1000,
+              "endMs": 1900
+            }
+          },
+          {
+            "key": "text-1",
+            "artifact": "artifact_069f38fc-deb0-40cd-a93c-e9bb4a967454",
+            "selector": {
+              "kind": "text",
+              "start": 23,
+              "end": 46,
+              "quote": "A green square appears."
+            }
+          }
+        ],
+        "search": [
+          {
+            "text": "A blue square appears.",
+            "target": "cue-0"
+          },
+          {
+            "text": "A green square appears.",
+            "target": "cue-1"
+          }
+        ],
+        "presentation": {
+          "fallback": "artifact_069f38fc-deb0-40cd-a93c-e9bb4a967454",
+          "thumbnail": "artifact_0331280b-f472-4843-9764-eb1832f653a4",
+          "component": "artifact_95edbb84-6e98-442f-9ca3-d997d035ac1a"
+        }
+      },
+      "targets": [
+        {
+          "key": "cue-0",
+          "artifact": "artifact_4bbe855d-58f7-47fe-ad02-37fe1f2caa6c",
+          "selector": {
+            "kind": "time",
+            "startMs": 0,
+            "endMs": 900
+          },
+          "id": "target_d23f682ff1e8f582a9712bb3",
+          "itemId": "item_a33f8d45-aa2b-4742-a109-bafeb59eab83",
+          "generation": "generation_3fb39a50-2551-4ed1-b0f4-f5546b450c6a"
+        },
+        {
+          "key": "text-0",
+          "artifact": "artifact_069f38fc-deb0-40cd-a93c-e9bb4a967454",
+          "selector": {
+            "kind": "text",
+            "start": 0,
+            "end": 22,
+            "quote": "A blue square appears."
+          },
+          "id": "target_865cd883e6ce197f334fe0a4",
+          "itemId": "item_a33f8d45-aa2b-4742-a109-bafeb59eab83",
+          "generation": "generation_3fb39a50-2551-4ed1-b0f4-f5546b450c6a"
+        },
+        {
+          "key": "cue-1",
+          "artifact": "artifact_4bbe855d-58f7-47fe-ad02-37fe1f2caa6c",
+          "selector": {
+            "kind": "time",
+            "startMs": 1000,
+            "endMs": 1900
+          },
+          "id": "target_99b273b64d3cb9162c976ffe",
+          "itemId": "item_a33f8d45-aa2b-4742-a109-bafeb59eab83",
+          "generation": "generation_3fb39a50-2551-4ed1-b0f4-f5546b450c6a"
+        },
+        {
+          "key": "text-1",
+          "artifact": "artifact_069f38fc-deb0-40cd-a93c-e9bb4a967454",
+          "selector": {
+            "kind": "text",
+            "start": 23,
+            "end": 46,
+            "quote": "A green square appears."
+          },
+          "id": "target_48bfe799f5e434a1ce26c330",
+          "itemId": "item_a33f8d45-aa2b-4742-a109-bafeb59eab83",
+          "generation": "generation_3fb39a50-2551-4ed1-b0f4-f5546b450c6a"
+        }
+      ]
+    },
+    "annotation": {
+      "id": "note_c03b7e75-4cb0-406a-9e5c-76ade3bcbba1",
+      "itemId": "item_a33f8d45-aa2b-4742-a109-bafeb59eab83",
+      "target": "target_d23f682ff1e8f582a9712bb3",
+      "body": "Check this moment",
+      "author": "user"
+    }
+  },
+  "parquet": {
+    "generation": {
+      "id": "generation_fb2767bb-f2d2-4d98-93d0-1fe77da57054",
+      "itemId": "item_ea8b17ea-3482-411f-a024-e6f194da3117",
+      "plugin": "parquet-summary",
+      "version": "0.1.0",
+      "state": "published",
+      "codeSha256": "042ccbc4f8cb3197e951f9ee6d20a19c5747d070c1b95eb9b20e0040c9a7ac54",
+      "epoch": "epoch_b21eaaa6-b11e-4eef-a8eb-fd532c285178",
+      "publication": {
+        "title": "Parquet public summary",
+        "description": "2 rows; label and value selected. Secret column excluded.",
+        "artifacts": [
+          "artifact_e93ea290-fbe5-4f4b-8f95-8382c0eae670"
+        ],
+        "targets": [
+          {
+            "key": "row-0",
+            "artifact": "artifact_e93ea290-fbe5-4f4b-8f95-8382c0eae670",
+            "selector": {
+              "kind": "text",
+              "start": 0,
+              "end": 10,
+              "quote": "Harbor: 12"
+            }
+          },
+          {
+            "key": "row-1",
+            "artifact": "artifact_e93ea290-fbe5-4f4b-8f95-8382c0eae670",
+            "selector": {
+              "kind": "text",
+              "start": 11,
+              "end": 21,
+              "quote": "Forest: 34"
+            }
+          }
+        ],
+        "search": [
+          {
+            "text": "Harbor: 12",
+            "target": "row-0"
+          },
+          {
+            "text": "Forest: 34",
+            "target": "row-1"
+          }
+        ],
+        "presentation": {
+          "fallback": "artifact_e93ea290-fbe5-4f4b-8f95-8382c0eae670"
+        }
+      },
+      "targets": [
+        {
+          "key": "row-0",
+          "artifact": "artifact_e93ea290-fbe5-4f4b-8f95-8382c0eae670",
+          "selector": {
+            "kind": "text",
+            "start": 0,
+            "end": 10,
+            "quote": "Harbor: 12"
+          },
+          "id": "target_16b52be02a41db624a19934e",
+          "itemId": "item_ea8b17ea-3482-411f-a024-e6f194da3117",
+          "generation": "generation_fb2767bb-f2d2-4d98-93d0-1fe77da57054"
+        },
+        {
+          "key": "row-1",
+          "artifact": "artifact_e93ea290-fbe5-4f4b-8f95-8382c0eae670",
+          "selector": {
+            "kind": "text",
+            "start": 11,
+            "end": 21,
+            "quote": "Forest: 34"
+          },
+          "id": "target_93eb6bc8d7869b1415908757",
+          "itemId": "item_ea8b17ea-3482-411f-a024-e6f194da3117",
+          "generation": "generation_fb2767bb-f2d2-4d98-93d0-1fe77da57054"
+        }
+      ]
+    },
+    "ranges": [
+      {
+        "start": 343,
+        "end": 351
+      },
+      {
+        "start": 144,
+        "end": 343
+      },
+      {
+        "start": 4,
+        "end": 70
+      }
+    ],
+    "excludedSecretSearchHits": 0,
+    "secretPage": {
+      "start": 70,
+      "end": 144,
+      "dataStart": 87,
+      "dataEnd": 144
+    },
+    "secretPageRead": false
+  },
+  "restartRetainedAnnotation": true
+}

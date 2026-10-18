@@ -1,0 +1,91 @@
+{
+  "runtime": "workerd 1.20261012.1 through miniflare 5.20261012.1-beta",
+  "observedAt": "2026-10-18T00:33:13.721Z",
+  "controlFetch": {
+    "allowed": true,
+    "value": "ambient-egress-canary"
+  },
+  "isolated": {
+    "first": {
+      "range": {
+        "text": "2345",
+        "status": 206,
+        "contentRange": "bytes 2-5/10"
+      },
+      "streamedWrite": {
+        "text": "derived artifact",
+        "bytes": 16
+      },
+      "derivation": {
+        "source": "original-a",
+        "text": "controlled transcript fixture"
+      },
+      "foreignRead": {
+        "allowed": false,
+        "error": "Error: object outside capability"
+      },
+      "foreignDerivation": {
+        "allowed": false,
+        "error": "Error: object outside capability"
+      },
+      "ambientFetch": {
+        "allowed": false,
+        "error": "Error: This worker is not permitted to access the internet via global functions like fetch(). It must use capabilities (such as bindings in 'env') to talk to the outside world."
+      },
+      "ambientTcp": {
+        "allowed": false,
+        "error": "Error: This worker is not permitted to access the internet via global functions like fetch(). It must use capabilities (such as bindings in 'env') to talk to the outside world."
+      },
+      "hostEnvironment": {
+        "allowed": false,
+        "error": "TypeError: The RPC receiver does not implement the method \"env\"."
+      },
+      "hostContext": {
+        "allowed": false,
+        "error": "TypeError: The RPC receiver does not implement the method \"ctx\"."
+      },
+      "ambient": {
+        "keys": [
+          "HOST"
+        ],
+        "globalKeys": [
+          "HOST"
+        ],
+        "secret": null,
+        "store": "undefined",
+        "loader": "undefined",
+        "process": "object",
+        "processEnvKeys": [],
+        "processSecret": null
+      }
+    },
+    "revoked": {
+      "allowed": false,
+      "error": "Error: run revoked"
+    }
+  },
+  "outboundCallsDuringIsolatedProbe": 0,
+  "audit": [
+    {
+      "operation": "read",
+      "runId": "isolated",
+      "objectId": "original-a"
+    },
+    {
+      "operation": "write",
+      "runId": "isolated",
+      "bytes": 16
+    },
+    {
+      "operation": "derive",
+      "runId": "isolated",
+      "objectId": "original-a",
+      "credentialValidated": true
+    },
+    {
+      "operation": "read",
+      "runId": "isolated",
+      "objectId": "original-b"
+    }
+  ]
+}

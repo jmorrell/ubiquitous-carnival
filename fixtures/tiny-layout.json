@@ -1,0 +1,24 @@
+{
+  "columns": {
+    "label": {
+      "start": 4,
+      "end": 41,
+      "dataStart": 21,
+      "dataEnd": 41
+    },
+    "value": {
+      "start": 41,
+      "end": 70,
+      "dataStart": 58,
+      "dataEnd": 70
+    },
+    "secret": {
+      "start": 70,
+      "end": 144,
+      "dataStart": 87,
+      "dataEnd": 144
+    }
+  },
+  "footerStart": 144,
+  "byteLength": 351
+}
