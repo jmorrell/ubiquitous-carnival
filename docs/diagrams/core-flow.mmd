@@ -1,14 +1,14 @@
 flowchart TB
-  U[URL only] --> A[URL acquisition extension<br/>Write HTML + multiple images<br/>Return Artifact[]]
+  U[URL only] --> A["acquire(url, write)<br/>Write HTML + multiple images<br/>Returns Artifact[]"]
   A --> H[Host completes ingestion atomically<br/>Returned artifacts become originals<br/>Acquisition failure: no Input]
   B[Uploaded files / folders<br/>Pasted text / browser capture<br/>Already downloaded bytes] -->|direct ingestion: bypass acquisition| H
   H --> I[Input: inputId + originals array<br/>Every artifact has stored bytes<br/>Each artifact has its own origin]
-  I --> P[Artifact processor<br/>Process assigned batch once<br/>Scoped read / write / transcribe]
-  P --> M[Return 1+ publication manifests<br/>Each selects its own artifact set]
+  I --> P["process(input, {read, write})<br/>Returns Publication[]<br/>Process assigned batch once"]
+  P --> M["Return Publication[]<br/>Artifact files + explicit search strings"]
   M --> V[Host validates ALL manifests]
   V -->|valid| S[Create items atomically<br/>Host assigns each item ID<br/>Mark Input processed]
   V -->|invalid / processing failure| X[No published items]
-  S --> R[Per-item search + readable fallback<br/>Optional isolated component<br/>Read only explicit artifact set]
+  S --> R[Per-item search + readable fallback<br/>Optional component loads private files<br/>Read only explicit artifact set]
   style A fill:#ffe5c2,stroke:#c47820
   style P fill:#ffe5c2,stroke:#c47820
   style H fill:#dcecff,stroke:#4678b5

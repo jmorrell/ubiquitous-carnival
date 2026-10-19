@@ -3,10 +3,10 @@ import * as fs from 'node:fs/promises';
 import { mkdtemp, readFile, readdir, rename, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileStore, streamText, syntheticTranscriber, type Transcriber } from '../src/store';
+import { FileStore, streamText } from '../src/store';
 import { runInProcess } from '../src/runner';
 import { createVideoProcessor, videoRegistration } from '../plugins/video';
-import { parquetProcessor, parquetRegistration } from '../plugins/parquet';
+import { processParquet, parquetRegistration } from '../plugins/parquet';
 
 vi.mock('node:fs/promises', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs/promises')>();
@@ -15,21 +15,21 @@ vi.mock('node:fs/promises', async importOriginal => {
 
 const directories: string[] = [];
 afterEach(async () => { for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true }); });
-async function setup(transcriber?: Transcriber) {
+async function setup() {
   const directory = await mkdtemp(join(tmpdir(), 'core-contract-')); directories.push(directory);
-  const store = await FileStore.open(directory, transcriber); await store.install(videoRegistration); await store.install(parquetRegistration);
+  const store = await FileStore.open(directory); await store.install(videoRegistration); await store.install(parquetRegistration);
   const input = await store.intake([{ origin: { kind: 'file', relativePath: 'video.webm' }, mediaType: 'video/webm', body: new Blob([await readFile(new URL('../fixtures/video.webm', import.meta.url))]).stream() }]);
   return { store, input, directory };
 }
 const processor = createVideoProcessor('<p>arbitrary plugin component</p>');
 async function processed(store: FileStore, inputId: string) {
   const run = await store.begin(inputId, videoRegistration.id);
-  const [publication] = await processor.process(store.input(run.id), store.host(run.id)); return { run, publication };
+  const [publication] = await processor(store.input(run.id), store.host(run.id)); return { run, publication };
 }
 
 describe('one processing call and validated publication results', () => {
   it('keeps incomplete output private, publishes once, and retains the result across restart', async () => {
-    let calls = 0; const { store, input, directory } = await setup(async original => { calls++; return syntheticTranscriber(original); });
+    const { store, input, directory } = await setup();
     const { run, publication } = await processed(store, input.inputId);
     expect(store.isProcessed(input.inputId)).toBe(false); expect(store.search('blue')).toEqual([]);
     expect(() => store.context(input.inputId)).toThrow('not published');
@@ -38,10 +38,13 @@ describe('one processing call and validated publication results', () => {
     const before = JSON.parse(await readFile(join(directory, 'metadata.json'), 'utf8'));
     expect(Object.keys(before.artifacts)).toEqual([input.originals[0].id]); expect(before.publications).toEqual({});
     const [published] = await store.publish(run.id, [publication]);
-    expect(calls).toBe(1); expect(published.publication).toEqual(publication); expect(store.isProcessed(input.inputId)).toBe(true);
+    expect(published.publication).toEqual(publication); expect(store.isProcessed(input.inputId)).toBe(true);
     expect(published.item.artifacts.find(artifact => artifact.id === input.originals[0].id)?.origin).toEqual({ kind: 'file', relativePath: 'video.webm' });
     for (const artifact of published.item.artifacts.filter(artifact => artifact.role !== 'original')) expect(artifact.origin).toEqual({ kind: 'none' });
     expect(store.search('blue')[0].artifact).toBe(input.originals[0].id);
+    // Storage is opaque: only the strings explicitly returned in Publication.search are indexed.
+    expect(await new Response(store.visibleArtifact(published.item.itemId, publication.presentation.thumbnail!).body).text()).toContain('Synthetic video fixture');
+    expect(store.search('Synthetic video fixture')).toEqual([]);
     await expect(store.host(run.id).read(input.originals[0].id)).rejects.toThrow('not live');
     expect(await readdir(join(directory, '.work'))).toEqual([]);
     const reloaded = await FileStore.open(directory);
@@ -51,13 +54,12 @@ describe('one processing call and validated publication results', () => {
     expect(Object.keys(saved).sort()).toEqual(['acquirers', 'artifacts', 'inputs', 'items', 'plugins', 'processed', 'publications', 'schemaVersion']);
   });
   it('discards failed work and retains only the original, with no automatic retry', async () => {
-    let calls = 0; const { store, input, directory } = await setup(async () => { calls++; throw new Error('synthetic service failure'); });
-    await expect(runInProcess(store, input.inputId, videoRegistration.id, {
-      async process(input, host) {
-        await host.write({ role: 'temporary', mediaType: 'text/plain' }, streamText('incomplete'));
-        await host.transcribe(input.originals[0].id); throw new Error('unreachable');
-      },
-    })).rejects.toThrow('synthetic service failure');
+    let calls = 0; const { store, input, directory } = await setup();
+    await expect(runInProcess(store, input.inputId, videoRegistration.id, async (_input, host) => {
+      calls++;
+      await host.write({ role: 'temporary', mediaType: 'text/plain' }, streamText('incomplete'));
+      throw new Error('processor failure');
+    })).rejects.toThrow('processor failure');
     expect(calls).toBe(1); expect(store.isProcessed(input.inputId)).toBe(false); expect(store.search('incomplete')).toEqual([]);
     expect(await readdir(join(directory, '.work'))).toEqual([]);
     expect(await readdir(join(directory, 'blobs'))).toEqual([input.originals[0].sha256]);
@@ -94,7 +96,7 @@ describe('one processing call and validated publication results', () => {
     const fulfilled = results.find(result => result.status === 'fulfilled')! as PromiseFulfilledResult<{ id: string; inputId: string }>;
     const rejected = results.find(result => result.status === 'rejected')! as PromiseRejectedResult;
     expect(String(rejected.reason)).toContain('already processing');
-    const run = fulfilled.value; await store.publish(run.id, await processor.process(store.input(run.id), store.host(run.id)));
+    const run = fulfilled.value; await store.publish(run.id, await processor(store.input(run.id), store.host(run.id)));
     await expect(store.begin(input.inputId, videoRegistration.id)).rejects.toThrow('already processed');
     await expect((await FileStore.open(directory)).begin(input.inputId, videoRegistration.id)).rejects.toThrow('already processed');
   });
@@ -105,7 +107,6 @@ describe('one processing call and validated publication results', () => {
     await store.remove(videoRegistration.id);
     await expect(host.read(other.originals[0].id)).rejects.toThrow('revoked');
     await expect(host.write({ role: 'late', mediaType: 'text/plain' }, streamText('late'))).rejects.toThrow('revoked');
-    await expect(host.transcribe(other.originals[0].id)).rejects.toThrow('revoked');
     await store.fail(run.id, 'removed');
     expect(store.context(published.item.itemId).publication.presentation.component).toBeUndefined();
     expect(() => store.visibleArtifact(published.item.itemId, published.publication.presentation.component!)).toThrow('component removed');
@@ -146,27 +147,16 @@ describe('one processing call and validated publication results', () => {
       await expect(store.begin(input.inputId)).rejects.toThrow('already processed');
     } finally { remove.mockImplementation(realRemove); }
   });
-  it('rechecks revocation after streamed writes and host service calls finish', async () => {
-    let releaseService!: () => void; const serviceGate = new Promise<void>(resolve => { releaseService = resolve; });
-    const { store, input, directory } = await setup(async original => { await serviceGate; return syntheticTranscriber(original); });
+  it('rechecks revocation after streamed writes finish', async () => {
+    const { store, input, directory } = await setup();
     const run = await store.begin(input.inputId); let release!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
     const body = new ReadableStream<Uint8Array>({ async start(controller) { controller.enqueue(new TextEncoder().encode('first')); await gate; controller.close(); } });
     const writing = store.host(run.id).write({ role: 'late', mediaType: 'text/plain' }, body);
-    const transcribing = store.host(run.id).transcribe(input.originals[0].id);
-    const writeAssertion = expect(writing).rejects.toThrow('revoked'); const serviceAssertion = expect(transcribing).rejects.toThrow('revoked');
-    await store.remove(videoRegistration.id); release(); releaseService(); await Promise.all([writeAssertion, serviceAssertion]);
+    const writeAssertion = expect(writing).rejects.toThrow('revoked');
+    await store.remove(videoRegistration.id); release(); await writeAssertion;
     await store.fail(run.id, 'removed'); expect(await readdir(join(directory, '.work'))).toEqual([]);
     expect(await readdir(join(directory, 'blobs'))).toEqual([input.originals[0].sha256]);
-  });
-  it('requires the explicit transcription grant and an owned original video', async () => {
-    let calls = 0; const { store, input } = await setup(async original => { calls++; return syntheticTranscriber(original); });
-    await store.install({ ...videoRegistration, id: 'without-service', grants: [] });
-    const run = await store.begin(input.inputId, 'without-service'); const host = store.host(run.id);
-    await expect(host.transcribe(input.originals[0].id)).rejects.toThrow('grant required');
-    const derived = await host.write({ role: 'derived-video', mediaType: 'video/webm' }, streamText('derived'));
-    await expect(host.transcribe(derived.id)).rejects.toThrow('original video'); expect(calls).toBe(0);
-    await store.fail(run.id, 'test cleanup');
   });
   it('enforces byte and output quotas without retaining rejected writes', async () => {
     const { store, input, directory } = await setup(); const run = await store.begin(input.inputId); const host = store.host(run.id);
@@ -191,7 +181,7 @@ describe('second scenario: actual Parquet without new host operations', () => {
     const { store } = await setup();
     const bytes = await readFile(new URL('../fixtures/tiny.parquet', import.meta.url)); expect(bytes.subarray(0, 4).toString()).toBe('PAR1'); expect(bytes.toString()).toContain('SECRET-DO-NOT-INDEX');
     const input = await store.intake([{ origin: { kind: 'file', relativePath: 'tiny.parquet' }, mediaType: 'application/vnd.apache.parquet', body: new Blob([bytes]).stream() }]);
-    const [result] = await runInProcess(store, input.inputId, parquetRegistration.id, parquetProcessor);
+    const [result] = await runInProcess(store, input.inputId, parquetRegistration.id, processParquet);
     const fallback = await new Response(store.visibleArtifact(result.item.itemId, result.publication.presentation.fallback).body).text();
     expect(fallback).toBe('Harbor: 12\nForest: 34'); expect(store.search('Harbor')).toHaveLength(1); expect(store.search('SECRET')).toHaveLength(0);
     const reads = store.audit.reads.filter(read => read.inputId === input.inputId); expect(reads.length).toBeGreaterThan(1); expect(reads.every(read => !!read.range)).toBe(true);

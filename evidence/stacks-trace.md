@@ -40,7 +40,7 @@ The checked-in synthetic http://notebook.example/article fixture makes the path 
 
 1. Archive input separately from processor output. The host assigns IDs and retains original bytes.
 2. Publish a finite manifest of artifact references and selected search text. Validate references before commit. Existing artifact storage supports this direction more strongly than one returned byte array or opaque metadata.
-3. Services need host-enforced authority. The prototype uses a concrete synthetic transcription service; paid-effect recovery is deferred.
+3. Service authority and provider setup remain separate runtime questions. The core contract describes stored artifacts and explicit search text; the video example keeps its synthetic transcript inside the plugin.
 4. Preserve a host-readable fallback, then independently test the smallest isolated detail-code boundary needed for synchronized media.
 5. Existing API authentication is a useful outer boundary; untrusted plugins need narrower item/object authority than Env.
 

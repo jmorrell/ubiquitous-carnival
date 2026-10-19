@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
-import type { Input, Publication, UrlAcquirer } from '../src/contract';
+import type { Input, Publication, Acquire } from '../src/contract';
 import { FileStore } from '../src/store';
 import { createRunner, runAcquisitionInProcess } from '../src/runner';
 import { createDynamicRuntime } from '../runtime/dynamic-runtime';
@@ -35,19 +35,17 @@ async function pageServer() {
 
 // This parser only knows the fixture's img syntax. A production acquirer can use a browser,
 // an API, or another retrieval strategy without changing how it creates artifacts.
-const fixturePageAcquirer: UrlAcquirer = {
-  async acquire(url, artifacts) {
-    const page = await fetch(url);
-    if (!page.ok) throw new Error(`Page fetch failed (${page.status})`);
-    const html = await page.text();
-    const result = [await artifacts.write({ mediaType: 'text/html', origin: { kind: 'url', url: page.url } }, new Blob([html]).stream())];
-    for (const match of html.matchAll(/<img src="([^"]+)">/g)) {
-      const image = await fetch(new URL(match[1], page.url));
-      if (!image.ok || !image.body) throw new Error('Image fetch failed');
-      result.push(await artifacts.write({ mediaType: image.headers.get('content-type')!, origin: { kind: 'url', url: image.url } }, image.body));
-    }
-    return result;
-  },
+const acquireFixturePage: Acquire = async (url, write) => {
+  const page = await fetch(url);
+  if (!page.ok) throw new Error(`Page fetch failed (${page.status})`);
+  const html = await page.text();
+  const result = [await write({ mediaType: 'text/html', origin: { kind: 'url', url: page.url } }, new Blob([html]).stream())];
+  for (const match of html.matchAll(/<img src="([^"]+)">/g)) {
+    const image = await fetch(new URL(match[1], page.url));
+    if (!image.ok || !image.body) throw new Error('Image fetch failed');
+    result.push(await write({ mediaType: image.headers.get('content-type')!, origin: { kind: 'url', url: image.url } }, image.body));
+  }
+  return result;
 };
 
 const bundleProcessorSource = `
@@ -81,7 +79,7 @@ it('acquires HTML and images as an artifact array, processes the bundle in a rea
   const directory = await mkdtemp(join(tmpdir(), 'acquisition-flow-'));
   const store = await FileStore.open(directory);
   await store.installAcquirer({ id: 'fixture-page', version: '0.1.0', urlOrigins: [fixture.origin] });
-  await store.install({ id: 'fixture-bundle', version: '0.1.0', accepts: ['text/html', 'image/*'], grants: [] });
+  await store.install({ id: 'fixture-bundle', version: '0.1.0', accepts: ['text/html', 'image/*'] });
   const runtime = await createDynamicRuntime(request => store.capabilityFetch(request));
   async function process(input: Input) {
     const run = await store.begin(input.inputId, 'fixture-bundle');
@@ -91,7 +89,7 @@ it('acquires HTML and images as an artifact array, processes the bundle in a rea
   }
   try {
     const pageUrl = fixture.origin + '/page.html';
-    const acquired = await runAcquisitionInProcess(store, pageUrl, 'fixture-page', fixturePageAcquirer);
+    const acquired = await runAcquisitionInProcess(store, pageUrl, 'fixture-page', acquireFixturePage);
     expect(fixture.requests).toEqual(['/page.html', '/blue.svg', '/green.svg']);
     expect(acquired.originals.map(artifact => artifact.mediaType)).toEqual(['text/html', 'image/svg+xml', 'image/svg+xml']);
     expect(acquired.originals.map(artifact => artifact.origin)).toEqual([...fixture.resources.keys()].map(path => ({ kind: 'url', url: fixture.origin + path })));
@@ -120,7 +118,7 @@ it('acquires HTML and images as an artifact array, processes the bundle in a rea
     expect(reloaded.results(captured.inputId)).toEqual([capturedPublication]);
     await writeFile(new URL('../evidence/acquisition-observed.json', import.meta.url), JSON.stringify({
       observedAt: new Date().toISOString(),
-      acquisitionEnvironment: 'In-process UrlAcquirer using ordinary fetch; environment and permissions are outside the contract',
+      acquisitionEnvironment: 'In-process acquire function using ordinary fetch; environment and permissions are outside the contract',
       processingEnvironment: 'Miniflare 5 / workerd Dynamic Worker',
       flow: 'URL → HTML + two image artifacts → complete Input → published bundle',
       fixture: { pageUrl, requests: fixture.requests }, acquired, published,

@@ -30,7 +30,7 @@ describe('completed ingestion becomes one processor input', () => {
       { kind: 'url', url: 'https://example.org/map' },
       { kind: 'none' },
     ]);
-    await store.install({ id: 'gallery', version: '1', accepts: ['image/*'], grants: [] });
+    await store.install({ id: 'gallery', version: '1', accepts: ['image/*'] });
     const run = await store.begin(input.inputId); expect(store.input(run.id)).toEqual(input);
     for (const [index, text] of ['first image', 'second image', 'third image'].entries()) {
       const original = input.originals[index];
@@ -85,7 +85,7 @@ describe('completed ingestion becomes one processor input', () => {
       expect(store.inputs()).toEqual([]); expect(await readdir(join(directory, 'blobs'))).toEqual([]);
       expect(await readdir(join(directory, '.work'))).toHaveLength(2);
       // Uploading does not reserve the metadata queue or publish a draft input.
-      await store.install({ id: 'gallery', version: '1', accepts: ['image/*'], grants: [] });
+      await store.install({ id: 'gallery', version: '1', accepts: ['image/*'] });
       const saved = JSON.parse(await readFile(join(directory, 'metadata.json'), 'utf8'));
       expect(saved.inputs).toEqual({}); expect(saved.artifacts).toEqual({});
     } finally { release(); }
@@ -174,9 +174,9 @@ describe('completed ingestion becomes one processor input', () => {
 
   it('selects only processors whose accepted media types cover every original', async () => {
     const { store } = await setup();
-    await store.install({ id: 'gallery', version: '1', accepts: ['image/*'], grants: [] });
-    await store.install({ id: 'jpeg-only', version: '1', accepts: ['image/jpeg'], grants: [] });
-    await store.install({ id: 'mixed', version: '1', accepts: ['image/*', 'text/plain'], grants: [] });
+    await store.install({ id: 'gallery', version: '1', accepts: ['image/*'] });
+    await store.install({ id: 'jpeg-only', version: '1', accepts: ['image/jpeg'] });
+    await store.install({ id: 'mixed', version: '1', accepts: ['image/*', 'text/plain'] });
     const images = await store.intake([
       { origin: { kind: 'none' }, mediaType: 'image/jpeg', body: streamText('jpeg') }, { origin: { kind: 'none' }, mediaType: 'image/png', body: streamText('png') },
     ]);

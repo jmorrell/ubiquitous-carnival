@@ -50,6 +50,7 @@ output{display:block;font-variant-numeric:tabular-nums;margin:7px 0}
     try {
       const original = context.item.artifacts.find((a) => a.mediaType.startsWith("video/"));
       if (!original) throw new Error("No video original");
+      // This viewer interprets its own private file format after loading the artifact.
       const transcript = await read(transcriptArtifact);
       segments = JSON.parse(new TextDecoder().decode(transcript.bytes)).segments;
       const media = await read(original.id);

@@ -4,13 +4,13 @@ The host displays a readable fallback and optionally loads component HTML into a
 
 ## Video interaction
 
-The video processor writes transcript JSON and embeds its artifact ID in its component HTML. The component reads that JSON and the original video through the broker, then uses transcript timestamps to seek an actual `HTMLVideoElement` and follow playback. Cue interpretation is private to the processor/component pair. No target registry or generic host action is needed.
+The video processor writes its own transcript JSON and embeds its artifact ID in its component HTML. When the component loads, it reads that JSON and the original video through the broker, then uses transcript timestamps to seek an actual `HTMLVideoElement` and follow playback. The file format and cue interpretation are private to the processor/component pair. The processor separately supplies the strings to index; the host has no transcript types or transcription operation. No target registry or generic host action is needed.
 
 The host's fixed text view remains readable without synchronization controls. The same host displays the Parquet summary at `/?item=parquet` without loading any component.
 
 ## Checks
 
-On 18 October 2026 (UTC), all **4 Playwright tests passed in 3.3 seconds** using cached Chromium **153.0.8010.12**. They exercise:
+On 18 October 2026 (Pacific time), all **4 Playwright tests passed in 3.1 seconds** using cached Chromium **153.0.8010.12**. They exercise:
 
 1. Actual media seeking, playback, and time display, plus the generic Parquet fallback.
 2. Denied parent DOM access, a real foreign item's artifact read, a hostile sibling frame racing the ready handshake, and unsupported broker methods.

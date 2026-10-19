@@ -3,10 +3,10 @@ import { createReadStream } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
-import type { Artifact, ArtifactOrigin, ArtifactWriter, ByteRange, Input, Item, ProcessingHost, ProcessorRegistration, Publication, TranscriptSegment, UrlAcquirerRegistration, ViewContext } from './contract';
+import type { Acquire, AcquisitionRegistration, Artifact, ArtifactOrigin, ByteRange, Input, Item, Process, ProcessorRegistration, Publication, ViewContext } from './contract';
 
 type Installed = { registration: ProcessorRegistration; epoch: string; active: boolean };
-type InstalledAcquirer = { registration: UrlAcquirerRegistration; active: boolean };
+type InstalledAcquirer = { registration: AcquisitionRegistration; active: boolean };
 type ProcessorInfo = { plugin: string; version: string; codeSha256?: string };
 type StoredPublication = { publication: Publication; processor: ProcessorInfo };
 type State = { schemaVersion: 7; inputs: Record<string, Input>; items: Record<string, Item>; artifacts: Record<string, Artifact>; publications: Record<string, StoredPublication>; processed: Record<string, string[]>; plugins: Record<string, Installed>; acquirers: Record<string, InstalledAcquirer> };
@@ -21,7 +21,6 @@ function requireThat(test: unknown, message: string): asserts test { if (!test) 
 const MAX_BLOB = 16 * 1024 * 1024;
 const MAX_RUN = 32 * 1024 * 1024;
 export const streamText = (text: string): ReadableStream<Uint8Array> => new Blob([text]).stream();
-export type Transcriber = (original: Artifact) => Promise<TranscriptSegment[]>;
 const validMediaType = (value: unknown): value is string => typeof value === 'string' && value.length < 150 && /^[\w!#$&^.+-]+\/[\w!#$&^.+-]+(?:;[^\r\n]*)?$/.test(value);
 function artifactOrigin(value: ArtifactOrigin): ArtifactOrigin {
   requireThat(value && typeof value === 'object' && !Array.isArray(value), 'invalid original origin');
@@ -52,20 +51,14 @@ export interface OriginalUpload {
   body: ReadableStream<Uint8Array>;
   origin: ArtifactOrigin;
 }
-/** Explicitly synthetic and deterministic. No audio recognition or provider call is claimed. */
-export const syntheticTranscriber: Transcriber = async () => [
-  { startMs: 0, endMs: 900, text: 'A blue square appears.' },
-  { startMs: 1000, endMs: 1900, text: 'A green square appears.' },
-];
-
 /** Single-process prototype: process an input once into an atomic set of items, with immutable blobs. */
 export class FileStore {
   private queue: Promise<unknown> = Promise.resolve();
   private runs = new Map<string, Run>();
   private acquisitions = new Map<string, AcquisitionRun>();
   readonly audit: { reads: { run: string; inputId: string; artifact: string; range?: ByteRange }[] } = { reads: [] };
-  private constructor(readonly directory: string, private state: State, private transcriber: Transcriber) {}
-  static async open(directory: string, transcriber: Transcriber = syntheticTranscriber) {
+  private constructor(readonly directory: string, private state: State) {}
+  static async open(directory: string) {
     let state: State;
     try {
       state = JSON.parse(await fs.readFile(join(directory, 'metadata.json'), 'utf8'));
@@ -73,7 +66,7 @@ export class FileStore {
     } catch (error: any) { if (error.code !== 'ENOENT') throw error; state = blank(); }
     await fs.mkdir(join(directory, 'blobs'), { recursive: true });
     await fs.mkdir(join(directory, '.work'), { recursive: true });
-    const store = new FileStore(directory, state, transcriber);
+    const store = new FileStore(directory, state);
     await store.save(state); return store;
   }
   private async save(state: State) {
@@ -101,13 +94,13 @@ export class FileStore {
     return this.mutate(next => { next.plugins[registration.id] = { registration: clone(registration), epoch: id('epoch'), active: true }; });
   }
   async remove(plugin: string) { return this.mutate(next => { const installed = next.plugins[plugin]; requireThat(installed, 'unknown plugin'); installed.active = false; }); }
-  async installAcquirer(registration: UrlAcquirerRegistration) {
+  async installAcquirer(registration: AcquisitionRegistration) {
     requireThat(registration && typeof registration.id === 'string' && registration.id.length > 0 && typeof registration.version === 'string' && registration.version.length > 0 && Array.isArray(registration.urlOrigins) && registration.urlOrigins.length > 0 && registration.urlOrigins.length <= 100, 'invalid acquirer registration');
     for (const origin of registration.urlOrigins) requireThat(acquisitionUrl(origin).origin === origin, 'acquirer requires exact HTTP(S) origins');
     return this.mutate(next => { next.acquirers[registration.id] = { registration: clone(registration), active: true }; });
   }
   async removeAcquirer(plugin: string) { return this.mutate(next => { const installed = next.acquirers[plugin]; requireThat(installed, 'unknown acquirer'); installed.active = false; }); }
-  acquisitionCandidates(value: string): UrlAcquirerRegistration[] {
+  acquisitionCandidates(value: string): AcquisitionRegistration[] {
     const url = acquisitionUrl(value);
     return clone(Object.values(this.state.acquirers).filter(p => p.active && p.registration.urlOrigins.includes(url.origin)).map(p => p.registration));
   }
@@ -125,20 +118,18 @@ export class FileStore {
     const run = this.acquisitions.get(runId); requireThat(run && !run.finishing, 'acquisition call is not live');
     return run;
   }
-  acquisitionWriter(runId: string): ArtifactWriter {
-    return {
-      write: async (meta, body) => {
-        this.liveAcquisition(runId); requireThat(meta && validMediaType(meta.mediaType), 'invalid acquired artifact media type');
-        requireThat(body && typeof body.getReader === 'function', 'acquired byte stream required');
-        const mediaType = meta.mediaType; const origin = artifactOrigin(meta.origin);
-        const { path, ...stored } = await this.temporaryBlob(body, join(this.directory, '.work', runId));
-        try {
-          const run = this.liveAcquisition(runId); const size = [...run.outputs.values()].reduce((n, value) => n + value.artifact.size, 0);
-          requireThat(run.outputs.size < 100, 'artifact count quota exceeded'); requireThat(size + stored.size <= MAX_RUN, 'acquisition output quota exceeded');
-          const artifact: Artifact = { id: id('artifact'), role: 'original', mediaType, origin, ...stored };
-          run.outputs.set(artifact.id, { artifact, path }); return clone(artifact);
-        } catch (error) { await fs.rm(path, { force: true }); throw error; }
-      },
+  acquisitionWriter(runId: string): Parameters<Acquire>[1] {
+    return async (meta, body) => {
+      this.liveAcquisition(runId); requireThat(meta && validMediaType(meta.mediaType), 'invalid acquired artifact media type');
+      requireThat(body && typeof body.getReader === 'function', 'acquired byte stream required');
+      const mediaType = meta.mediaType; const origin = artifactOrigin(meta.origin);
+      const { path, ...stored } = await this.temporaryBlob(body, join(this.directory, '.work', runId));
+      try {
+        const run = this.liveAcquisition(runId); const size = [...run.outputs.values()].reduce((n, value) => n + value.artifact.size, 0);
+        requireThat(run.outputs.size < 100, 'artifact count quota exceeded'); requireThat(size + stored.size <= MAX_RUN, 'acquisition output quota exceeded');
+        const artifact: Artifact = { id: id('artifact'), role: 'original', mediaType, origin, ...stored };
+        run.outputs.set(artifact.id, { artifact, path }); return clone(artifact);
+      } catch (error) { await fs.rm(path, { force: true }); throw error; }
     };
   }
   async completeAcquisition(runId: string, artifacts: Artifact[]): Promise<Input> {
@@ -275,7 +266,7 @@ export class FileStore {
     }
     return Readable.toWeb(createReadStream(path, range ? { start: range.start, end: range.end - 1 } : undefined)) as ReadableStream<Uint8Array>;
   }
-  host(runId: string): ProcessingHost {
+  host(runId: string): Parameters<Process>[1] {
     return {
       read: async (artifactId, range) => {
         const run = this.live(runId); const { artifact, path } = this.owned(run, artifactId);
@@ -291,12 +282,6 @@ export class FileStore {
           const artifact: Artifact = { id: id('artifact'), role: meta.role, mediaType: meta.mediaType, origin: { kind: 'none' }, ...stored };
           run.outputs.set(artifact.id, { artifact, path }); return clone(artifact);
         } catch (error) { await fs.rm(path, { force: true }); throw error; }
-      },
-      transcribe: async originalId => {
-        const run = this.live(runId); const original = this.owned(run, originalId).artifact;
-        requireThat(this.state.inputs[run.inputId].originals.some(artifact => artifact.id === originalId) && original.mediaType.startsWith('video/'), 'transcription requires original video');
-        requireThat(this.state.plugins[run.plugin].registration.grants.includes('transcribe'), 'transcription grant required');
-        const result = await this.transcriber(clone(original)); this.live(runId); return clone(result);
       },
     };
   }
@@ -379,7 +364,6 @@ export class FileStore {
         return new Response(await host.read(decodeURIComponent(url.pathname.slice(6)), range));
       }
       if (request.method === 'PUT' && url.pathname === '/write') return Response.json(await host.write({ role: request.headers.get('x-role') ?? '', mediaType: request.headers.get('content-type') ?? '' }, request.body ?? streamText('')));
-      if (request.method === 'POST' && url.pathname === '/transcribe') { const { original } = await request.json() as any; return Response.json(await host.transcribe(original)); }
       return new Response('unknown capability operation', { status: 400 });
     } catch (error) { return new Response(String(error), { status: 403 }); }
   }

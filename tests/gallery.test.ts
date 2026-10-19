@@ -4,10 +4,10 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { FileStore, streamText } from '../src/store';
 import { runInProcess } from '../src/runner';
-import { galleryProcessor, galleryRegistration, type GalleryManifest } from '../plugins/gallery';
-import { photoItemsProcessor, photoItemsRegistration } from '../plugins/photo-items';
+import { processGallery, galleryRegistration, type GalleryManifest } from '../plugins/gallery';
+import { processPhotos, photoItemsRegistration } from '../plugins/photo-items';
 import { createVideoProcessor, videoRegistration } from '../plugins/video';
-import { parquetProcessor, parquetRegistration } from '../plugins/parquet';
+import { processParquet, parquetRegistration } from '../plugins/parquet';
 
 const directories: string[] = [];
 afterEach(async () => { for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true }); });
@@ -30,7 +30,7 @@ it('turns an image input into one gallery with explicit original references', as
   const run = await store.begin(input.inputId, galleryRegistration.id); const host = store.host(run.id);
   const contents = await Promise.all(input.originals.map(async original => new Response(await host.read(original.id)).text()));
   expect(contents[0]).toContain('#2463eb'); expect(contents[1]).toContain('#12966a');
-  const results = await store.publish(run.id, await galleryProcessor.process(store.input(run.id), host));
+  const results = await store.publish(run.id, await processGallery(store.input(run.id), host));
   expect(results).toHaveLength(1); const result = results[0]; const itemId = result.item.itemId;
   const manifest: GalleryManifest = await new Response(store.visibleArtifact(itemId, result.publication.artifacts[0]).body).json();
   expect(manifest.images).toEqual(input.originals.map((original, index) => ({ artifact: original.id, caption: ['photos/blue.svg', 'photos/day-2/green.svg'][index] })));
@@ -49,8 +49,8 @@ it('lets the selected processor turn equivalent image bytes into separate items'
   // Fresh inputs compare processors without reprocessing a completed input.
   const galleryInput = await store.intake(await images()); const photoInput = await store.intake(await images());
   expect(photoInput.originals.map(original => original.sha256)).toEqual(galleryInput.originals.map(original => original.sha256));
-  const gallery = await runInProcess(store, galleryInput.inputId, galleryRegistration.id, galleryProcessor);
-  const photos = await runInProcess(store, photoInput.inputId, photoItemsRegistration.id, photoItemsProcessor);
+  const gallery = await runInProcess(store, galleryInput.inputId, galleryRegistration.id, processGallery);
+  const photos = await runInProcess(store, photoInput.inputId, photoItemsRegistration.id, processPhotos);
   expect(gallery).toHaveLength(1); expect(photos).toHaveLength(2);
   expect(new Set(photos.map(view => view.item.itemId)).size).toBe(2);
   for (const [index, view] of photos.entries()) {
@@ -67,7 +67,7 @@ it('single-file examples reject a collection instead of silently ignoring its ot
   const { store } = await setup();
   for (const [registration, processor, mediaType] of [
     [videoRegistration, createVideoProcessor('<p>viewer</p>'), 'video/webm'],
-    [parquetRegistration, parquetProcessor, 'application/vnd.apache.parquet'],
+    [parquetRegistration, processParquet, 'application/vnd.apache.parquet'],
   ] as const) {
     await store.install(registration);
     const input = await store.intake([

@@ -19,13 +19,12 @@ export interface Artifact {
 export interface Input { inputId: InputId; originals: readonly Artifact[] }
 /** A published item exposes only the artifacts explicitly selected by its publication. */
 export interface Item { itemId: ItemId; artifacts: readonly Artifact[] }
-/** Stores acquired bytes and returns a host-issued artifact descriptor. */
-export interface ArtifactWriter {
-  write(meta: { mediaType: string; origin: ArtifactOrigin }, body: ReadableStream<Uint8Array>): Promise<Artifact>;
-}
 /** Obtaining content is implementation-specific; the returned artifacts become one complete Input. */
-export interface UrlAcquirer { acquire(url: string, artifacts: ArtifactWriter): Promise<Artifact[]> }
-export interface UrlAcquirerRegistration {
+export type Acquire = (
+  url: string,
+  write: (meta: { mediaType: string; origin: ArtifactOrigin }, body: ReadableStream<Uint8Array>) => Promise<Artifact>,
+) => Promise<Artifact[]>;
+export interface AcquisitionRegistration {
   id: string;
   version: string;
   /** Exact HTTP(S) origins used for host-owned handler selection. */
@@ -33,7 +32,7 @@ export interface UrlAcquirerRegistration {
 }
 /** End is exclusive. */
 export interface ByteRange { start: number; end: number }
-/** Search text resolves to a published artifact, with no host-managed location identity. */
+/** Explicit plugin-supplied index text; the host does not interpret artifact contents. */
 export interface SearchEntry { text: string; artifact: ArtifactId }
 export interface Publication {
   title: string;
@@ -43,21 +42,18 @@ export interface Publication {
   search: SearchEntry[];
   presentation: { fallback: ArtifactId; thumbnail?: ArtifactId; component?: ArtifactId };
 }
-export interface TranscriptSegment { startMs: number; endMs: number; text: string }
-/** Capabilities exist only during one processing call, never expose a bucket or Env. */
-export interface ProcessingHost {
-  read(artifact: ArtifactId, range?: ByteRange): Promise<ReadableStream<Uint8Array>>;
-  write(meta: { role: string; mediaType: string }, body: ReadableStream<Uint8Array>): Promise<Artifact>;
-  /** Grant required. Provider configuration and credentials stay in the host. */
-  transcribe(original: ArtifactId): Promise<TranscriptSegment[]>;
-}
 /** Artifact processing follows acquisition or direct ingestion. Recognition is host-owned. */
-export interface Processor { process(input: Input, host: ProcessingHost): Promise<Publication[]> }
+export type Process = (
+  input: Input,
+  artifacts: {
+    read(artifact: ArtifactId, range?: ByteRange): Promise<ReadableStream<Uint8Array>>;
+    write(meta: { role: string; mediaType: string }, body: ReadableStream<Uint8Array>): Promise<Artifact>;
+  },
+) => Promise<Publication[]>;
 export interface ProcessorRegistration {
   id: string;
   version: string;
   accepts: readonly string[];
-  grants: readonly "transcribe"[];
 }
 /** An isolated component can read this item's published artifacts. */
 export type ViewRequest = { id: string; method: "read"; artifact: ArtifactId; range?: ByteRange };

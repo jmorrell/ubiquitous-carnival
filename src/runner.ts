@@ -2,21 +2,21 @@ import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createDynamicRuntime } from '../runtime/dynamic-runtime';
-import type { Processor, Publication, UrlAcquirer } from './contract';
-import { downloadAcquirer } from '../plugins/download';
+import type { Acquire, Process, Publication } from './contract';
+import { acquireUrl } from '../plugins/download';
 import { FileStore } from './store';
 
 /** In-process harness for semantic tests; this function is NOT an isolation boundary. */
-export async function runInProcess(store: FileStore, inputId: string, plugin: string, processor: Processor) {
+export async function runInProcess(store: FileStore, inputId: string, plugin: string, process: Process) {
   const run = await store.begin(inputId, plugin);
-  try { const result = await processor.process(store.input(run.id), store.host(run.id)); return await store.publish(run.id, result); }
+  try { const result = await process(store.input(run.id), store.host(run.id)); return await store.publish(run.id, result); }
   catch (error) { await store.fail(run.id, error); throw error; }
 }
 
 /** Acquisition environments are supplied by the application; only artifact creation is modeled here. */
-export async function runAcquisitionInProcess(store: FileStore, url: string, plugin: string, acquirer: UrlAcquirer) {
+export async function runAcquisitionInProcess(store: FileStore, url: string, plugin: string, acquire: Acquire) {
   const run = await store.beginAcquisition(url, plugin);
-  try { return await store.completeAcquisition(run.id, await acquirer.acquire(run.url, store.acquisitionWriter(run.id))); }
+  try { return await store.completeAcquisition(run.id, await acquire(run.url, store.acquisitionWriter(run.id))); }
   catch (error) { await store.failAcquisition(run.id); throw error; }
 }
 
@@ -26,7 +26,7 @@ const entrypoints = {
   'image-gallery': '../plugins/gallery-worker.ts',
   'photo-items': '../plugins/photo-items-worker.ts',
 } as const;
-const acquirers = { 'url-download': downloadAcquirer } as const;
+const acquisitions = { 'url-download': acquireUrl } as const;
 
 export async function createRunner(store: FileStore) {
   const runtime = await createDynamicRuntime(request => store.capabilityFetch(request));
@@ -49,8 +49,8 @@ export async function createRunner(store: FileStore) {
         return await store.publish(run.id, publications);
       } catch (error) { await store.fail(run.id, error); throw error; }
     },
-    acquire(url: string, plugin: keyof typeof acquirers) {
-      return runAcquisitionInProcess(store, url, plugin, acquirers[plugin]);
+    acquire(url: string, plugin: keyof typeof acquisitions) {
+      return runAcquisitionInProcess(store, url, plugin, acquisitions[plugin]);
     },
     dispose: () => runtime.dispose(),
   };

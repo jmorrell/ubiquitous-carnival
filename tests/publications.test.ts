@@ -11,7 +11,7 @@ afterEach(async () => { for (const directory of directories.splice(0)) await rm(
 async function setup() {
   const directory = await mkdtemp(join(tmpdir(), 'publication-set-')); directories.push(directory);
   const store = await FileStore.open(directory);
-  await store.install({ id: 'documents', version: '0.1.0', accepts: ['text/plain'], grants: [] });
+  await store.install({ id: 'documents', version: '0.1.0', accepts: ['text/plain'] });
   const input = await store.intake([
     { mediaType: 'text/plain', origin: { kind: 'url', url: 'https://example.com/first' }, body: streamText('First original') },
     { mediaType: 'text/plain', origin: { kind: 'url', url: 'https://example.com/second' }, body: streamText('Second original') },
@@ -70,14 +70,12 @@ describe('an input produces an atomic set of published items', () => {
 
   it('rejects an invalid later result without publishing the valid first result and discards the run', async () => {
     const { store, input, directory } = await setup();
-    await expect(runInProcess(store, input.inputId, 'documents', {
-      async process(value, host) {
-        const fallback = await host.write({ role: 'summary', mediaType: 'text/plain' }, streamText('Tentative summary'));
-        return [manifest('Valid first result', fallback.id), {
-          ...manifest('Invalid later result', fallback.id),
-          search: [{ text: 'omitted original', artifact: value.originals[1].id }],
-        }];
-      },
+    await expect(runInProcess(store, input.inputId, 'documents', async (value, host) => {
+      const fallback = await host.write({ role: 'summary', mediaType: 'text/plain' }, streamText('Tentative summary'));
+      return [manifest('Valid first result', fallback.id), {
+        ...manifest('Invalid later result', fallback.id),
+        search: [{ text: 'omitted original', artifact: value.originals[1].id }],
+      }];
     })).rejects.toThrow('search artifact');
     expect(store.items()).toEqual([]); expect(store.results(input.inputId)).toEqual([]);
     expect(store.isProcessed(input.inputId)).toBe(false); expect(store.search('Valid')).toEqual([]);
